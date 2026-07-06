@@ -132,11 +132,18 @@ def headers_from_excel(file_bytes: bytes) -> list[str]:
 # Form CRUD
 # ---------------------------------------------------------------------------
 
-def create_form(title: str, description: str, user_id: int, fields: list[dict]) -> Form:
+def create_form(title: str, description: str, user_id: int, fields: list[dict],
+                allow_multiple: bool = False, unique_field_label: str = "") -> "Form":
     """Create a Form with its FormField rows and commit."""
-    form = Form(title=title, description=description, created_by=user_id)
+    form = Form(
+        title=title,
+        description=description,
+        created_by=user_id,
+        allow_multiple=allow_multiple,
+        unique_field_label=unique_field_label or None,
+    )
     db.session.add(form)
-    db.session.flush()   # get form.id before inserting fields
+    db.session.flush()
 
     for idx, f in enumerate(fields):
         field = FormField(
@@ -172,22 +179,72 @@ def delete_form(form_id: int, user_id: int) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Response submission
+# Response submission with deduplication
 # ---------------------------------------------------------------------------
 
-def submit_response(form_id: int, user_id: int | None, answers: dict) -> FormResponse:
-    """answers = {field_id: value, ...}"""
-    response = FormResponse(form_id=form_id, submitted_by=user_id)
-    db.session.add(response)
-    db.session.flush()
+def find_existing_response(form_id: int, unique_key_value: str) -> "FormResponse | None":
+    """Find an existing response for this form with the same unique key."""
+    return FormResponse.query.filter_by(
+        form_id=form_id,
+        unique_key_value=unique_key_value.strip().lower()
+    ).first()
 
-    for field_id, value in answers.items():
-        answer = FormFieldResponse(
-            response_id=response.id,
-            field_id=int(field_id),
-            value=str(value) if value is not None else "",
+
+def check_duplicate(form_id: int, unique_key_value: str) -> bool:
+    """Returns True if a response with this unique key already exists."""
+    return find_existing_response(form_id, unique_key_value) is not None
+
+
+def submit_response(form_id: int, user_id: "int | None", answers: dict,
+                    respondent_email: str = "", unique_key_value: str = "",
+                    update_existing: bool = False) -> "tuple[FormResponse, bool]":
+    """
+    Save or update a form response.
+    Returns (response, was_updated).
+    - If allow_multiple=False and a matching unique_key_value exists → update existing.
+    - Otherwise → create new.
+    """
+    existing = None
+    if unique_key_value and update_existing:
+        existing = find_existing_response(form_id, unique_key_value)
+
+    if existing:
+        # Update existing response answers
+        existing.respondent_email = respondent_email or existing.respondent_email
+        existing.unique_key_value = unique_key_value.strip().lower() if unique_key_value else existing.unique_key_value
+        existing.submitted_at = __import__('datetime').datetime.now(__import__('datetime').timezone.utc)
+
+        # Delete old answers and replace
+        for ans in existing.answers:
+            db.session.delete(ans)
+        db.session.flush()
+
+        for field_id, value in answers.items():
+            db.session.add(FormFieldResponse(
+                response_id=existing.id,
+                field_id=int(field_id),
+                value=str(value) if value is not None else "",
+            ))
+
+        db.session.commit()
+        return existing, True
+
+    else:
+        response = FormResponse(
+            form_id=form_id,
+            submitted_by=user_id,
+            respondent_email=respondent_email or None,
+            unique_key_value=unique_key_value.strip().lower() if unique_key_value else None,
         )
-        db.session.add(answer)
+        db.session.add(response)
+        db.session.flush()
 
-    db.session.commit()
-    return response
+        for field_id, value in answers.items():
+            db.session.add(FormFieldResponse(
+                response_id=response.id,
+                field_id=int(field_id),
+                value=str(value) if value is not None else "",
+            ))
+
+        db.session.commit()
+        return response, False

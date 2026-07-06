@@ -1,4 +1,5 @@
-from flask import Blueprint, render_template, request, jsonify, abort, url_for
+import re
+from flask import Blueprint, render_template, request, jsonify, abort
 from flask_login import login_required, current_user
 
 from app.services.form_service import (
@@ -8,12 +9,15 @@ from app.services.form_service import (
     list_forms,
     delete_form,
     submit_response,
+    check_duplicate,
+    find_existing_response,
 )
 
 forms_bp = Blueprint("forms", __name__, template_folder="../templates")
 
 ALLOWED_EXTENSIONS = {"xlsx", "xls"}
-MAX_UPLOAD_BYTES = 10 * 1024 * 1024   # 10 MB
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 
 
 def _ext_ok(filename: str) -> bool:
@@ -56,7 +60,7 @@ def form_responses(form_id):
 
 
 # ---------------------------------------------------------------------------
-# API — Excel upload → smart header detection
+# API — Excel upload
 # ---------------------------------------------------------------------------
 
 @forms_bp.route("/api/forms/parse-excel", methods=["POST"])
@@ -64,22 +68,18 @@ def form_responses(form_id):
 def api_parse_excel():
     if "file" not in request.files:
         return jsonify({"ok": False, "error": "No file uploaded."}), 400
-
     f = request.files["file"]
     if not f.filename or not _ext_ok(f.filename):
         return jsonify({"ok": False, "error": "Only .xlsx / .xls files are accepted."}), 400
-
     data = f.read(MAX_UPLOAD_BYTES + 1)
     if len(data) > MAX_UPLOAD_BYTES:
         return jsonify({"ok": False, "error": "File too large (max 10 MB)."}), 413
-
     try:
         result = parse_excel(data)
     except ValueError as exc:
         return jsonify({"ok": False, "error": str(exc)}), 422
     except Exception as exc:
         return jsonify({"ok": False, "error": f"Could not read file: {exc}"}), 422
-
     return jsonify({"ok": True, **result})
 
 
@@ -94,13 +94,17 @@ def api_create_form():
     title = (payload.get("title") or "").strip()
     description = (payload.get("description") or "").strip()
     fields = payload.get("fields") or []
+    allow_multiple = bool(payload.get("allow_multiple", False))
+    unique_field_label = (payload.get("unique_field_label") or "").strip()
 
     if not title:
         return jsonify({"ok": False, "error": "Form title is required."}), 400
     if not fields:
         return jsonify({"ok": False, "error": "Add at least one field."}), 400
 
-    form = create_form(title, description, current_user.id, fields)
+    form = create_form(title, description, current_user.id, fields,
+                       allow_multiple=allow_multiple,
+                       unique_field_label=unique_field_label)
     return jsonify({"ok": True, "form_id": form.id}), 201
 
 
@@ -118,21 +122,67 @@ def api_delete_form(form_id):
 
 
 # ---------------------------------------------------------------------------
-# Public shareable fill page — no login required
+# Public shareable fill page
 # ---------------------------------------------------------------------------
 
 @forms_bp.route("/f/<int:form_id>")
 def public_form_fill(form_id):
-    """Public URL that can be shared via WhatsApp/email for data collection."""
     form = get_form(form_id)
     if not form or not form.is_active:
         abort(404)
     return render_template("forms/public_fill.html", form=form)
 
 
+# ---------------------------------------------------------------------------
+# API — Check for existing entry (dedup check before showing form)
+# ---------------------------------------------------------------------------
+
+@forms_bp.route("/api/public/forms/<int:form_id>/check", methods=["POST"])
+def api_public_check(form_id):
+    """
+    Called after respondent enters their email / unique key.
+    Returns whether an existing entry was found so the UI can warn the user.
+    """
+    try:
+        form = get_form(form_id)
+        if not form or not form.is_active:
+            return jsonify({"ok": False, "error": "Form not found."}), 404
+
+        payload = request.get_json(silent=True) or {}
+        email = (payload.get("email") or "").strip().lower()
+        unique_key = (payload.get("unique_key") or "").strip()
+
+        if not EMAIL_RE.match(email):
+            return jsonify({"ok": False, "error": "Enter a valid email address."}), 400
+
+        # Determine the dedup key
+        dedup_value = unique_key if unique_key else email
+
+        existing = find_existing_response(form_id, dedup_value) if not form.allow_multiple else None
+
+        # Pre-fill existing answers if found
+        existing_answers = {}
+        if existing:
+            for ans in existing.answers:
+                existing_answers[str(ans.field_id)] = ans.value
+
+        return jsonify({
+            "ok": True,
+            "has_existing": existing is not None,
+            "allow_multiple": form.allow_multiple,
+            "existing_answers": existing_answers,
+        })
+
+    except Exception as exc:
+        return jsonify({"ok": False, "error": f"Server error: {str(exc)}"}), 500
+
+
+# ---------------------------------------------------------------------------
+# API — Public submit (with dedup)
+# ---------------------------------------------------------------------------
+
 @forms_bp.route("/api/public/forms/<int:form_id>/responses", methods=["POST"])
 def api_public_submit(form_id):
-    """Accept submissions from the public fill form (anonymous)."""
     try:
         form = get_form(form_id)
         if not form or not form.is_active:
@@ -140,25 +190,43 @@ def api_public_submit(form_id):
 
         payload = request.get_json(silent=True) or {}
         answers = payload.get("answers") or {}
+        email = (payload.get("email") or "").strip().lower()
+        unique_key = (payload.get("unique_key") or "").strip()
 
+        if not EMAIL_RE.match(email):
+            return jsonify({"ok": False, "error": "A valid email address is required."}), 400
+
+        # Field validation
         errors = {}
         for field in form.fields:
             val = str(answers.get(str(field.id), "")).strip()
             if field.is_required and not val:
                 errors[str(field.id)] = f"{field.label} is required."
-
         if errors:
             return jsonify({"ok": False, "errors": errors}), 400
 
-        response = submit_response(form_id, None, answers)
-        return jsonify({"ok": True, "response_id": response.id}), 201
+        # Determine dedup key
+        dedup_value = unique_key if unique_key else email
+
+        # Only enforce dedup if allow_multiple is False
+        update_existing = not form.allow_multiple
+
+        response, was_updated = submit_response(
+            form_id, None, answers,
+            respondent_email=email,
+            unique_key_value=dedup_value,
+            update_existing=update_existing,
+        )
+
+        msg = "Your entry has been updated successfully." if was_updated else "Data has been submitted successfully."
+        return jsonify({"ok": True, "response_id": response.id, "updated": was_updated, "message": msg}), 201
 
     except Exception as exc:
         return jsonify({"ok": False, "error": f"Server error: {str(exc)}"}), 500
 
 
 # ---------------------------------------------------------------------------
-# API — Submit response (authenticated)
+# API — Authenticated submit
 # ---------------------------------------------------------------------------
 
 @forms_bp.route("/api/forms/<int:form_id>/responses", methods=["POST"])
@@ -176,18 +244,19 @@ def api_submit_response(form_id):
         val = str(answers.get(str(field.id), "")).strip()
         if field.is_required and not val:
             errors[str(field.id)] = f"{field.label} is required."
-
     if errors:
         return jsonify({"ok": False, "errors": errors}), 400
 
-    from flask_login import current_user
-    uid = current_user.id if current_user.is_authenticated else None
-    response = submit_response(form_id, uid, answers)
+    response, was_updated = submit_response(
+        form_id, current_user.id, answers,
+        respondent_email=current_user.email,
+        update_existing=False,
+    )
     return jsonify({"ok": True, "response_id": response.id}), 201
 
 
 # ---------------------------------------------------------------------------
-# API — Get form data (for dynamic rendering)
+# API — Get form data
 # ---------------------------------------------------------------------------
 
 @forms_bp.route("/api/forms/<int:form_id>", methods=["GET"])

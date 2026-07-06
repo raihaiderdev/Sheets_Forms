@@ -8,23 +8,23 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Inter', sans-serif; background: #f1f5f9; color: #1e293b; min-height: 100vh; padding: 32px 16px; }
+  .page-header { text-align: center; margin-bottom: 28px; }
+  .org-logo { font-size: 22px; font-weight: 800; color: #0ea5e9; letter-spacing: 2px; }
+  .org-name { font-size: 11px; font-weight: 600; color: #64748b; letter-spacing: 1px; text-transform: uppercase; margin-top: 3px; }
+  .form-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; max-width: 620px; margin: 0 auto; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
+  .form-banner { background: #0f172a; padding: 24px 28px; }
+  .form-title { font-size: 18px; font-weight: 700; color: #f1f5f9; margin-bottom: 4px; }
+  .form-desc { font-size: 12px; color: #94a3b8; line-height: 1.5; }
+  .form-meta { font-size: 11px; color: #475569; margin-top: 8px; display: flex; gap: 14px; flex-wrap: wrap; }
+  .progress-bar { height: 3px; background: #e2e8f0; }
+  .progress-fill { height: 100%; background: #0ea5e9; width: 0%; transition: width 0.3s; }
 
-  .page-header { text-align: center; margin-bottom: 32px; }
-  .org-name { font-size: 13px; font-weight: 600; color: #64748b; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; }
-  .org-logo { font-size: 24px; font-weight: 800; color: #0ea5e9; letter-spacing: 2px; margin-bottom: 4px; }
-
-  .form-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; max-width: 640px; margin: 0 auto; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.06); }
-
-  .form-banner { background: #0f172a; padding: 28px 32px; }
-  .form-title { font-size: 20px; font-weight: 700; color: #f1f5f9; margin-bottom: 6px; }
-  .form-desc { font-size: 13px; color: #94a3b8; line-height: 1.6; }
-  .form-meta { font-size: 11px; color: #64748b; margin-top: 10px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-  .form-meta span { display: flex; align-items: center; gap: 4px; }
-
-  .form-body { padding: 28px 32px; }
-
-  .field-group { margin-bottom: 20px; }
-  .field-group label { display: block; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 6px; }
+  /* Email step */
+  .email-step { padding: 28px; }
+  .step-title { font-size: 15px; font-weight: 700; color: #1e293b; margin-bottom: 6px; }
+  .step-sub { font-size: 13px; color: #64748b; margin-bottom: 20px; line-height: 1.5; }
+  .field-group { margin-bottom: 16px; }
+  .field-group label { display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.4px; }
   .field-group label .req { color: #ef4444; margin-left: 2px; }
   .field-group input, .field-group textarea, .field-group select {
     width: 100%; background: #f8fafc; border: 1px solid #e2e8f0; color: #1e293b;
@@ -34,32 +34,39 @@
   .field-group input:focus, .field-group textarea:focus, .field-group select:focus {
     border-color: #0ea5e9; box-shadow: 0 0 0 3px rgba(14,165,233,0.1); background: #fff;
   }
-  .field-group input::placeholder, .field-group textarea::placeholder { color: #94a3b8; }
-  .field-group.invalid input, .field-group.invalid textarea, .field-group.invalid select {
+  .field-group input::placeholder { color: #94a3b8; }
+  .field-group.invalid input, .field-group.invalid select, .field-group.invalid textarea {
     border-color: #ef4444; background: #fff5f5;
   }
-  .field-error { font-size: 12px; color: #ef4444; margin-top: 5px; display: none; }
+  .field-error { font-size: 12px; color: #ef4444; margin-top: 4px; display: none; }
   .field-group.invalid .field-error { display: block; }
 
-  .form-footer { padding: 0 32px 28px; }
-  .btn-submit {
-    width: 100%; padding: 13px; background: #0ea5e9; color: #fff; border: none;
-    border-radius: 6px; font-size: 15px; font-weight: 600; cursor: pointer;
-    transition: background 0.15s; font-family: inherit;
-  }
-  .btn-submit:hover { background: #0284c7; }
-  .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
-  .submit-note { font-size: 11px; color: #94a3b8; text-align: center; margin-top: 10px; }
+  /* Warning banner */
+  .warn-banner { background: #fffbeb; border: 1px solid #fcd34d; border-radius: 6px; padding: 12px 16px; margin-bottom: 16px; display: none; }
+  .warn-banner .warn-title { font-size: 13px; font-weight: 700; color: #92400e; margin-bottom: 4px; }
+  .warn-banner .warn-sub { font-size: 12px; color: #78350f; line-height: 1.5; }
+
+  /* Form fields section */
+  .form-body { padding: 20px 28px; }
+  .form-footer { padding: 0 28px 24px; }
+
+  /* Buttons */
+  .btn { width: 100%; padding: 12px; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; transition: background 0.15s; }
+  .btn-primary { background: #0ea5e9; color: #fff; }
+  .btn-primary:hover { background: #0284c7; }
+  .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+  .btn-warn { background: #f59e0b; color: #fff; }
+  .btn-warn:hover { background: #d97706; }
+  .btn-warn:disabled { opacity: 0.6; cursor: not-allowed; }
+  .submit-note { font-size: 11px; color: #94a3b8; text-align: center; margin-top: 8px; }
 
   /* Success */
-  .success-screen { display: none; padding: 56px 32px; text-align: center; }
-  .success-icon { font-size: 56px; margin-bottom: 16px; }
-  .success-title { font-size: 22px; font-weight: 700; color: #16a34a; margin-bottom: 8px; }
+  .success-screen { display: none; padding: 48px 28px; text-align: center; }
+  .success-icon { font-size: 52px; margin-bottom: 14px; }
+  .success-title { font-size: 20px; font-weight: 700; color: #16a34a; margin-bottom: 8px; }
   .success-sub { font-size: 14px; color: #64748b; line-height: 1.6; }
 
-  /* Progress bar */
-  .progress-bar { height: 3px; background: #e2e8f0; }
-  .progress-fill { height: 100%; background: #0ea5e9; width: 0%; transition: width 0.3s; }
+  .hidden { display: none !important; }
 </style>
 </head>
 <body>
@@ -72,16 +79,49 @@
 <div class="form-card">
   <div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
 
-  <div id="form-view">
+  <!-- Step 1 — Email + unique key -->
+  <div id="step-email">
     <div class="form-banner">
       <div class="form-title">{{ form.title }}</div>
       {% if form.description %}<div class="form-desc">{{ form.description }}</div>{% endif %}
       <div class="form-meta">
         <span>📋 {{ form.fields|length }} fields</span>
-        <span>⏱ ~{{ ((form.fields|length) * 0.5)|int + 1 }} min</span>
+        {% if not form.allow_multiple %}<span>🔒 One entry per {{ form.unique_field_label or 'respondent' }}</span>{% endif %}
       </div>
     </div>
+    <div class="email-step">
+      <div class="step-title">Enter your details to continue</div>
+      <div class="step-sub">Your email is used to identify your submission.{% if not form.allow_multiple %} If you have submitted before, your previous entry will be updated.{% endif %}</div>
 
+      <div class="field-group" id="fg-email">
+        <label>Email Address <span class="req">*</span></label>
+        <input type="email" id="resp-email" placeholder="your@email.com">
+        <div class="field-error" id="fe-email">Enter a valid email address.</div>
+      </div>
+
+      {% if form.unique_field_label %}
+      <div class="field-group" id="fg-ukey">
+        <label>{{ form.unique_field_label }} <span class="req">*</span></label>
+        <input type="text" id="resp-ukey" placeholder="Enter {{ form.unique_field_label }}">
+        <div class="field-error" id="fe-ukey">{{ form.unique_field_label }} is required.</div>
+      </div>
+      {% endif %}
+
+      <div class="warn-banner" id="warn-banner">
+        <div class="warn-title">⚠️ Existing entry found</div>
+        <div class="warn-sub" id="warn-text">A previous submission was found. Clicking Continue will update your existing entry.</div>
+      </div>
+
+      <button class="btn btn-primary" id="btn-continue" onclick="checkAndContinue()">Continue →</button>
+    </div>
+  </div>
+
+  <!-- Step 2 — Form fields -->
+  <div id="step-form" class="hidden">
+    <div class="form-banner">
+      <div class="form-title">{{ form.title }}</div>
+      {% if form.description %}<div class="form-desc">{{ form.description }}</div>{% endif %}
+    </div>
     <form id="fill-form" onsubmit="submitForm(event)" novalidate>
       <div class="form-body">
         {% for field in form.fields %}
@@ -96,11 +136,9 @@
           {% elif field.field_type == 'select' %}
             <select id="f-{{ field.id }}" name="{{ field.id }}" {% if field.is_required %}required{% endif %}>
               <option value="">— Select an option —</option>
-              {% if field.options %}
-                {% for opt in field.options.split(',') %}
-                <option value="{{ opt.strip() }}">{{ opt.strip() }}</option>
-                {% endfor %}
-              {% endif %}
+              {% if field.options %}{% for opt in field.options.split(',') %}
+              <option value="{{ opt.strip() }}">{{ opt.strip() }}</option>
+              {% endfor %}{% endif %}
             </select>
           {% else %}
             <input type="{{ field.field_type }}" id="f-{{ field.id }}" name="{{ field.id }}"
@@ -112,30 +150,113 @@
         {% endfor %}
       </div>
       <div class="form-footer">
-        <button type="submit" class="btn-submit" id="submit-btn">Submit</button>
+        <button type="submit" class="btn btn-primary" id="submit-btn">Submit</button>
         <div class="submit-note">Your response will be recorded securely.</div>
       </div>
     </form>
   </div>
 
+  <!-- Success screen -->
   <div class="success-screen" id="success-screen">
     <div class="success-icon">✅</div>
-    <div class="success-title">Thank you!</div>
-    <div class="success-sub">Your response has been submitted successfully.<br>You may close this page.</div>
+    <div class="success-title" id="success-title">Data Submitted Successfully</div>
+    <div class="success-sub" id="success-sub">Your response has been recorded. You may close this page.</div>
   </div>
 </div>
 
 <script>
-const inputs = document.querySelectorAll('input[name], textarea[name], select[name]');
+const FORM_ID = {{ form.id }};
+let respondentEmail = '';
+let uniqueKey = '';
+let hasExisting = false;
 
+// Progress
 function updateProgress() {
+  const inputs = document.querySelectorAll('#fill-form input[name], #fill-form textarea[name], #fill-form select[name]');
   const filled = Array.from(inputs).filter(i => (i.value || '').trim()).length;
   document.getElementById('progress').style.width = (filled / Math.max(inputs.length, 1) * 100) + '%';
 }
-inputs.forEach(i => i.addEventListener('input', updateProgress));
 
+// Step 1 — Check email / unique key
+async function checkAndContinue() {
+  const emailEl = document.getElementById('resp-email');
+  const ukeyEl = document.getElementById('resp-ukey');
+  const emailFg = document.getElementById('fg-email');
+  const ukeyFg = document.getElementById('fg-ukey');
+
+  const email = (emailEl.value || '').trim().toLowerCase();
+  const ukey = ukeyEl ? (ukeyEl.value || '').trim() : '';
+
+  // Validate
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  emailFg.classList.toggle('invalid', !emailOk);
+  if (ukeyFg) ukeyFg.classList.toggle('invalid', !ukey);
+  if (!emailOk || (ukeyFg && !ukey)) return;
+
+  respondentEmail = email;
+  uniqueKey = ukey;
+
+  const btn = document.getElementById('btn-continue');
+  btn.disabled = true; btn.textContent = 'Checking…';
+
+  try {
+    const r = await fetch('/api/public/forms/' + FORM_ID + '/check', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ email, unique_key: ukey })
+    });
+    const data = await r.json();
+    if (!data.ok) {
+      emailFg.classList.add('invalid');
+      document.getElementById('fe-email').textContent = data.error || 'Error. Try again.';
+      btn.disabled = false; btn.textContent = 'Continue →';
+      return;
+    }
+
+    hasExisting = data.has_existing;
+
+    // Pre-fill existing answers
+    if (data.existing_answers && Object.keys(data.existing_answers).length) {
+      Object.entries(data.existing_answers).forEach(([fid, val]) => {
+        const el = document.getElementById('f-' + fid);
+        if (el) el.value = val;
+      });
+    }
+
+    if (hasExisting && !data.allow_multiple) {
+      // Show warning then auto-proceed
+      const wb = document.getElementById('warn-banner');
+      wb.style.display = 'block';
+      document.getElementById('warn-text').textContent =
+        'A previous submission was found for this ' +
+        (ukey ? '{{ form.unique_field_label or "identifier" }}' : 'email') +
+        '. Clicking Submit will update your existing entry.';
+      btn.disabled = false; btn.textContent = 'Continue →';
+      // Small delay then show form
+      setTimeout(showFormStep, 800);
+    } else {
+      showFormStep();
+    }
+
+  } catch(ex) {
+    alert('Network error. Please try again.');
+    btn.disabled = false; btn.textContent = 'Continue →';
+  }
+}
+
+function showFormStep() {
+  document.getElementById('step-email').classList.add('hidden');
+  document.getElementById('step-form').classList.remove('hidden');
+  document.getElementById('progress').style.width = '20%';
+  // Attach progress listeners
+  document.querySelectorAll('#fill-form input[name], #fill-form textarea[name], #fill-form select[name]')
+    .forEach(i => i.addEventListener('input', updateProgress));
+  window.scrollTo(0, 0);
+}
+
+// Step 2 — Submit
 async function submitForm(e) {
   e.preventDefault();
+  const inputs = document.querySelectorAll('#fill-form input[name], #fill-form textarea[name], #fill-form select[name]');
   const answers = {};
   let valid = true;
 
@@ -151,26 +272,28 @@ async function submitForm(e) {
   });
 
   if (!valid) {
-    document.querySelector('.field-group.invalid')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    document.querySelector('#fill-form .field-group.invalid')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     return;
   }
 
   const btn = document.getElementById('submit-btn');
-  btn.disabled = true;
-  btn.textContent = 'Submitting…';
+  btn.disabled = true; btn.textContent = 'Submitting…';
 
   try {
-    const r = await fetch('/api/public/forms/{{ form.id }}/responses', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ answers })
+    const r = await fetch('/api/public/forms/' + FORM_ID + '/responses', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ answers, email: respondentEmail, unique_key: uniqueKey })
     });
     const data = await r.json();
 
     if (data.ok) {
       document.getElementById('progress').style.width = '100%';
-      document.getElementById('form-view').style.display = 'none';
-      document.getElementById('success-screen').style.display = '';
+      document.getElementById('step-form').classList.add('hidden');
+      const ss = document.getElementById('success-screen');
+      ss.style.display = '';
+      document.getElementById('success-title').textContent = data.updated
+        ? 'Entry Updated Successfully' : 'Data Submitted Successfully';
+      document.getElementById('success-sub').textContent = data.message || 'Your response has been recorded.';
     } else if (data.errors) {
       Object.entries(data.errors).forEach(([fid, msg]) => {
         const fg = document.getElementById('fg-' + fid);
@@ -182,8 +305,8 @@ async function submitForm(e) {
       btn.disabled = false; btn.textContent = 'Submit';
     }
   } catch(ex) {
-    console.error('Submit error:', ex);
-    alert('Network error. Please check your connection and try again.');
+    console.error(ex);
+    alert('Network error. Please check your connection.');
     btn.disabled = false; btn.textContent = 'Submit';
   }
 }

@@ -14,6 +14,14 @@ class Form(db.Model):
     )
     is_active = db.Column(db.Boolean, default=True, nullable=False)
 
+    # If True — anyone can submit multiple times (public mode)
+    # If False — one submission per unique_field value; re-submit = update
+    allow_multiple = db.Column(db.Boolean, default=False, nullable=False)
+
+    # Label of the field used as the unique key (e.g. "EMIS Code")
+    # Empty = use respondent_email as the unique identifier
+    unique_field_label = db.Column(db.String(255), nullable=True)
+
     fields = db.relationship(
         "FormField", backref="form", cascade="all, delete-orphan", order_by="FormField.order"
     )
@@ -30,6 +38,8 @@ class Form(db.Model):
             "created_by": self.created_by,
             "created_at": self.created_at.isoformat(),
             "is_active": self.is_active,
+            "allow_multiple": self.allow_multiple,
+            "unique_field_label": self.unique_field_label or "",
             "field_count": len(self.fields),
             "response_count": len(self.responses),
         }
@@ -66,8 +76,19 @@ class FormResponse(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     form_id = db.Column(db.Integer, db.ForeignKey("forms.id"), nullable=False)
     submitted_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+
+    # Email entered by public respondent on the share link
+    respondent_email = db.Column(db.String(255), nullable=True, index=True)
+
+    # Value of the unique field (e.g. EMIS code) for deduplication
+    unique_key_value = db.Column(db.String(500), nullable=True, index=True)
+
     submitted_at = db.Column(
         db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+    updated_at = db.Column(
+        db.DateTime, default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc), nullable=False
     )
 
     answers = db.relationship(
@@ -80,7 +101,10 @@ class FormResponse(db.Model):
             "id": self.id,
             "form_id": self.form_id,
             "submitted_by": self.submitted_by,
+            "respondent_email": self.respondent_email or "",
+            "unique_key_value": self.unique_key_value or "",
             "submitted_at": self.submitted_at.isoformat(),
+            "updated_at": self.updated_at.isoformat(),
             "answers": [a.to_dict() for a in self.answers],
         }
 

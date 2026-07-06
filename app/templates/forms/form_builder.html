@@ -166,6 +166,17 @@
           <label>Description (optional)</label>
           <textarea id="excel-desc" rows="2" placeholder="Brief description"></textarea>
         </div>
+        <div class="field-group">
+          <label>Unique Field (no duplicate entries)</label>
+          <select id="excel-unique">
+            <option value="">— Use respondent email as unique key —</option>
+          </select>
+          <div style="font-size:11px;color:#64748b;margin-top:4px;">If a second submission with the same value arrives, it will update the existing entry instead of creating a new one.</div>
+        </div>
+        <div class="field-group" style="display:flex;align-items:center;gap:10px;">
+          <input type="checkbox" id="excel-allow-multiple" style="width:16px;height:16px;accent-color:#0ea5e9;">
+          <label for="excel-allow-multiple" style="font-size:13px;color:#e2e8f0;text-transform:none;letter-spacing:0;margin:0;cursor:pointer;">Allow multiple submissions from same person (public mode)</label>
+        </div>
         <div class="card-title" style="margin-top:8px;">Adjust Fields</div>
         <div class="field-rows" id="excel-fields"></div>
         <button class="btn btn-primary" id="excel-btn" onclick="submitExcel()">Create Form</button>
@@ -183,6 +194,17 @@
         <div class="field-group">
           <label>Description (optional)</label>
           <textarea id="manual-desc" rows="2" placeholder="Brief description"></textarea>
+        </div>
+        <div class="field-group">
+          <label>Unique Field (no duplicate entries)</label>
+          <select id="manual-unique">
+            <option value="">— Use respondent email as unique key —</option>
+          </select>
+          <div style="font-size:11px;color:#64748b;margin-top:4px;">If a second submission with the same value arrives, it will update the existing entry instead of creating a new one.</div>
+        </div>
+        <div class="field-group" style="display:flex;align-items:center;gap:10px;">
+          <input type="checkbox" id="manual-allow-multiple" style="width:16px;height:16px;accent-color:#0ea5e9;">
+          <label for="manual-allow-multiple" style="font-size:13px;color:#e2e8f0;text-transform:none;letter-spacing:0;margin:0;cursor:pointer;">Allow multiple submissions from same person (public mode)</label>
         </div>
       </div>
       <div class="card">
@@ -265,6 +287,9 @@ function showPreview(data) {
   list.innerHTML = '';
   headers.forEach(h => list.appendChild(makeRow(h, 'text')));
   document.getElementById('excel-meta').style.display = '';
+
+  // Populate unique field dropdown from headers
+  populateUniqueDropdown('excel-unique', headers);
 }
 
 function makeRow(label, type) {
@@ -281,6 +306,24 @@ function makeRow(label, type) {
 
 function addField(listId) {
   document.getElementById(listId).appendChild(makeRow('', 'text'));
+  // Refresh manual unique dropdown
+  if (listId === 'manual-fields') {
+    const labels = Array.from(document.getElementById('manual-fields').querySelectorAll('[data-k=label]')).map(i => i.value.trim()).filter(Boolean);
+    populateUniqueDropdown('manual-unique', labels);
+  }
+}
+
+function populateUniqueDropdown(selectId, labels) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">— Use respondent email as unique key —</option>';
+  labels.forEach(l => {
+    const opt = document.createElement('option');
+    opt.value = l; opt.textContent = l;
+    if (l === cur) opt.selected = true;
+    sel.appendChild(opt);
+  });
 }
 
 function collectFields(listId) {
@@ -296,25 +339,32 @@ async function submitExcel() {
   const title = document.getElementById('excel-title').value.trim();
   const desc = document.getElementById('excel-desc').value.trim();
   const fields = collectFields('excel-fields');
+  const allowMultiple = document.getElementById('excel-allow-multiple').checked;
+  const uniqueFieldLabel = document.getElementById('excel-unique').value;
   if (!title) { toast('Form title is required', 'error'); return; }
   if (!fields.length) { toast('Add at least one field', 'error'); return; }
-  await doCreate(title, desc, fields, 'excel-btn');
+  await doCreate(title, desc, fields, 'excel-btn', allowMultiple, uniqueFieldLabel);
 }
 
 async function submitManual() {
   const title = document.getElementById('manual-title').value.trim();
   const desc = document.getElementById('manual-desc').value.trim();
   const fields = collectFields('manual-fields');
+  const allowMultiple = document.getElementById('manual-allow-multiple').checked;
+  const uniqueFieldLabel = document.getElementById('manual-unique').value;
   if (!title) { toast('Form title is required', 'error'); return; }
   if (!fields.length) { toast('Add at least one field', 'error'); return; }
-  await doCreate(title, desc, fields, 'manual-btn');
+  await doCreate(title, desc, fields, 'manual-btn', allowMultiple, uniqueFieldLabel);
 }
 
-async function doCreate(title, desc, fields, btnId) {
+async function doCreate(title, desc, fields, btnId, allowMultiple, uniqueFieldLabel) {
   const btn = document.getElementById(btnId);
   btn.disabled = true;
   try {
-    const r = await fetch('/api/forms', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({title, description: desc, fields}) });
+    const r = await fetch('/api/forms', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ title, description: desc, fields, allow_multiple: allowMultiple, unique_field_label: uniqueFieldLabel })
+    });
     const data = await r.json();
     if (data.ok) { toast('Form created!', 'success'); setTimeout(() => window.location = '/forms', 1200); }
     else { toast(data.error || 'Error creating form', 'error'); btn.disabled = false; }

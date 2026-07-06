@@ -101,8 +101,9 @@
         <thead>
           <tr>
             <th>#</th>
-            <th>Submitted By</th>
-            <th>Date</th>
+            <th>Respondent Email</th>
+            <th>{{ form.unique_field_label or 'Unique Key' }}</th>
+            <th>Submitted At</th>
             {% for field in form.fields %}<th>{{ field.label }}</th>{% endfor %}
           </tr>
         </thead>
@@ -112,7 +113,8 @@
             {% for a in resp.answers %}{% set _ = ans.update({a.field_id: a.value}) %}{% endfor %}
           <tr>
             <td style="color:#475569">{{ loop.index }}</td>
-            <td>{{ resp.submitter.username if resp.submitter else 'Anonymous' }}</td>
+            <td>{{ resp.respondent_email or (resp.submitter.email if resp.submitter else '—') }}</td>
+            <td style="color:#64748b">{{ resp.unique_key_value or '—' }}</td>
             <td style="color:#64748b;white-space:nowrap">{{ resp.submitted_at.strftime('%b %d, %Y %H:%M') }}</td>
             {% for field in form.fields %}
             <td>{{ ans.get(field.id, '—') }}</td>
