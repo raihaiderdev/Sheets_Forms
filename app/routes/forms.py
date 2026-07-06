@@ -2,6 +2,7 @@ import re
 from flask import Blueprint, render_template, request, jsonify, abort
 from flask_login import login_required, current_user
 
+from app.models.db import db
 from app.services.form_service import (
     parse_excel,
     create_form,
@@ -256,8 +257,65 @@ def api_submit_response(form_id):
 
 
 # ---------------------------------------------------------------------------
-# API — Get form data
+# API — Get single response by ID (for update flow)
 # ---------------------------------------------------------------------------
+
+@forms_bp.route("/api/public/forms/<int:form_id>/responses/<int:response_id>", methods=["GET"])
+def api_get_single_response(form_id, response_id):
+    try:
+        from app.models.form import FormResponse
+        resp = db.session.get(FormResponse, response_id)
+        if not resp or resp.form_id != form_id:
+            return jsonify({"ok": False, "error": "Response not found."}), 404
+        answers = {str(a.field_id): a.value for a in resp.answers}
+        return jsonify({"ok": True, "answers": answers, "respondent_email": resp.respondent_email or ""})
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+# ---------------------------------------------------------------------------
+# API — Update a specific response by ID
+# ---------------------------------------------------------------------------
+
+@forms_bp.route("/api/public/forms/<int:form_id>/responses/<int:response_id>", methods=["PUT"])
+def api_update_single_response(form_id, response_id):
+    try:
+        from app.models.form import FormResponse, FormFieldResponse
+        resp = db.session.get(FormResponse, response_id)
+        if not resp or resp.form_id != form_id:
+            return jsonify({"ok": False, "error": "Response not found."}), 404
+
+        payload = request.get_json(silent=True) or {}
+        answers = payload.get("answers") or {}
+
+        # Validate required fields
+        form = get_form(form_id)
+        errors = {}
+        for field in form.fields:
+            val = str(answers.get(str(field.id), "")).strip()
+            if field.is_required and not val:
+                errors[str(field.id)] = f"{field.label} is required."
+        if errors:
+            return jsonify({"ok": False, "errors": errors}), 400
+
+        # Replace answers
+        for ans in resp.answers:
+            db.session.delete(ans)
+        db.session.flush()
+
+        from datetime import datetime, timezone
+        resp.submitted_at = datetime.now(timezone.utc)
+
+        for field_id, value in answers.items():
+            db.session.add(FormFieldResponse(
+                response_id=resp.id,
+                field_id=int(field_id),
+                value=str(value) if value is not None else "",
+            ))
+        db.session.commit()
+        return jsonify({"ok": True, "message": "Entry updated successfully."})
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
 
 @forms_bp.route("/api/forms/<int:form_id>", methods=["GET"])
 @login_required
