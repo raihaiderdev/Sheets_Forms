@@ -206,11 +206,16 @@ def api_public_submit(form_id):
         if errors:
             return jsonify({"ok": False, "errors": errors}), 400
 
-        # Determine dedup key
-        dedup_value = unique_key if unique_key else email
-
-        # Only enforce dedup if allow_multiple is False
-        update_existing = not form.allow_multiple
+        # Determine dedup key — only deduplicate if the form has a unique_field_label
+        # AND the respondent provided that specific value.
+        # Never deduplicate by email alone (email identifies the session, not a single record).
+        if form.unique_field_label and unique_key:
+            dedup_value = unique_key.strip()
+            update_existing = not form.allow_multiple
+        else:
+            # No unique field configured — always create a new row
+            dedup_value = ""
+            update_existing = False
 
         response, was_updated = submit_response(
             form_id, None, answers,
