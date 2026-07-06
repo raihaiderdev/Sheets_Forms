@@ -155,7 +155,7 @@ def create_form(title: str, description: str, user_id: int, fields: list[dict]) 
 
 
 def get_form(form_id: int) -> Form | None:
-    return Form.query.get(form_id)
+    return db.session.get(Form, form_id)
 
 
 def list_forms(user_id: int) -> list[Form]:

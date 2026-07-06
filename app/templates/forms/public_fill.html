@@ -180,6 +180,7 @@ async function submitForm(e) {
       btn.disabled = false; btn.textContent = 'Submit';
     }
   } catch(ex) {
+    console.error('Submit error:', ex);
     alert('Network error. Please check your connection and try again.');
     btn.disabled = false; btn.textContent = 'Submit';
   }

@@ -133,24 +133,28 @@ def public_form_fill(form_id):
 @forms_bp.route("/api/public/forms/<int:form_id>/responses", methods=["POST"])
 def api_public_submit(form_id):
     """Accept submissions from the public fill form (anonymous)."""
-    form = get_form(form_id)
-    if not form or not form.is_active:
-        return jsonify({"ok": False, "error": "Form not found."}), 404
+    try:
+        form = get_form(form_id)
+        if not form or not form.is_active:
+            return jsonify({"ok": False, "error": "Form not found."}), 404
 
-    payload = request.get_json(silent=True) or {}
-    answers = payload.get("answers") or {}
+        payload = request.get_json(silent=True) or {}
+        answers = payload.get("answers") or {}
 
-    errors = {}
-    for field in form.fields:
-        val = str(answers.get(str(field.id), "")).strip()
-        if field.is_required and not val:
-            errors[str(field.id)] = f"{field.label} is required."
+        errors = {}
+        for field in form.fields:
+            val = str(answers.get(str(field.id), "")).strip()
+            if field.is_required and not val:
+                errors[str(field.id)] = f"{field.label} is required."
 
-    if errors:
-        return jsonify({"ok": False, "errors": errors}), 400
+        if errors:
+            return jsonify({"ok": False, "errors": errors}), 400
 
-    response = submit_response(form_id, None, answers)
-    return jsonify({"ok": True, "response_id": response.id}), 201
+        response = submit_response(form_id, None, answers)
+        return jsonify({"ok": True, "response_id": response.id}), 201
+
+    except Exception as exc:
+        return jsonify({"ok": False, "error": f"Server error: {str(exc)}"}), 500
 
 
 # ---------------------------------------------------------------------------
