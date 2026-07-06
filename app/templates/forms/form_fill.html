@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ form.title }} — DEN</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; display: flex; }
+  .sidebar { width: 240px; background: #1e293b; border-right: 1px solid #334155; display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 100; }
+  .sidebar-logo { padding: 24px 20px; border-bottom: 1px solid #334155; }
+  .logo-text { font-size: 20px; font-weight: 700; color: #38bdf8; letter-spacing: 1px; }
+  .logo-sub { font-size: 11px; color: #64748b; margin-top: 2px; }
+  .sidebar-user { padding: 16px 20px; border-bottom: 1px solid #334155; display: flex; align-items: center; gap: 12px; }
+  .avatar { width: 36px; height: 36px; border-radius: 50%; background: #0ea5e9; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; color: #fff; flex-shrink: 0; }
+  .user-name { font-size: 13px; font-weight: 600; color: #e2e8f0; }
+  .user-role { font-size: 11px; color: #64748b; margin-top: 2px; }
+  nav { flex: 1; padding: 12px 0; }
+  .nav-label { font-size: 10px; font-weight: 600; color: #475569; text-transform: uppercase; letter-spacing: 1px; padding: 12px 20px 6px; }
+  .nav-link { display: flex; align-items: center; gap: 10px; padding: 10px 20px; color: #94a3b8; font-size: 13px; font-weight: 500; text-decoration: none; transition: all 0.15s; border-left: 3px solid transparent; }
+  .nav-link:hover { background: #0f172a; color: #e2e8f0; border-left-color: #38bdf8; }
+  .nav-icon { font-size: 16px; width: 20px; text-align: center; }
+  .sidebar-footer { padding: 16px 20px; border-top: 1px solid #334155; }
+  .btn-logout { width: 100%; padding: 9px; background: transparent; border: 1px solid #ef4444; color: #ef4444; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s; font-family: inherit; }
+  .btn-logout:hover { background: #ef4444; color: #fff; }
+  .main { margin-left: 240px; flex: 1; display: flex; flex-direction: column; }
+  .topbar { padding: 16px 32px; background: #1e293b; border-bottom: 1px solid #334155; display: flex; align-items: center; position: sticky; top: 0; z-index: 50; }
+  .page-title { font-size: 18px; font-weight: 700; color: #f1f5f9; }
+  .content { padding: 32px; flex: 1; max-width: 700px; }
+  .form-header { margin-bottom: 28px; }
+  .form-title { font-size: 22px; font-weight: 700; color: #f1f5f9; margin-bottom: 6px; }
+  .form-desc { font-size: 13px; color: #64748b; line-height: 1.6; }
+  .card { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 28px; }
+  .field-group { margin-bottom: 22px; }
+  .field-group:last-of-type { margin-bottom: 0; }
+  .field-group label { display: block; font-size: 12px; font-weight: 600; color: #94a3b8; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .field-group label .req { color: #f87171; margin-left: 2px; }
+  .field-group input, .field-group textarea, .field-group select {
+    width: 100%; background: #0f172a; border: 1px solid #334155; color: #e2e8f0;
+    padding: 10px 14px; border-radius: 6px; font-size: 14px; font-family: inherit;
+    outline: none; transition: border-color 0.15s; resize: vertical; appearance: none;
+  }
+  .field-group input:focus, .field-group textarea:focus, .field-group select:focus { border-color: #38bdf8; }
+  .field-group input::placeholder, .field-group textarea::placeholder { color: #475569; }
+  .field-group.invalid input, .field-group.invalid textarea, .field-group.invalid select { border-color: #ef4444; }
+  .field-error { font-size: 12px; color: #f87171; margin-top: 5px; display: none; }
+  .field-group.invalid .field-error { display: block; }
+  .btn-submit { margin-top: 24px; padding: 12px 28px; background: #0ea5e9; color: #fff; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.15s; font-family: inherit; }
+  .btn-submit:hover { background: #38bdf8; }
+  .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+  .success-card { text-align: center; padding: 56px 24px; background: #1e293b; border: 1px solid #334155; border-radius: 8px; display: none; }
+  .success-icon { font-size: 48px; margin-bottom: 16px; }
+  .success-title { font-size: 20px; font-weight: 700; color: #4ade80; margin-bottom: 8px; }
+  .success-sub { font-size: 13px; color: #64748b; margin-bottom: 24px; }
+  .btn-link { display: inline-block; padding: 10px 22px; background: #0ea5e9; color: #fff; border-radius: 6px; font-size: 13px; font-weight: 600; text-decoration: none; transition: all 0.15s; }
+  .btn-link:hover { background: #38bdf8; }
+</style>
+</head>
+<body>
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-text">DEN</div>
+    <div class="logo-sub">District Education Network</div>
+  </div>
+  <div class="sidebar-user">
+    <div class="avatar">{{ user.username[0].upper() }}</div>
+    <div>
+      <div class="user-name">{{ user.username }}</div>
+      <div class="user-role">{{ user.office }}</div>
+    </div>
+  </div>
+  <nav>
+    <div class="nav-label">Menu</div>
+    <a href="/dashboard" class="nav-link"><span class="nav-icon">🏠</span> Dashboard</a>
+    <a href="/forms" class="nav-link"><span class="nav-icon">📋</span> My Forms</a>
+    <a href="/forms/new" class="nav-link"><span class="nav-icon">➕</span> Create Form</a>
+  </nav>
+  <div class="sidebar-footer">
+    <form action="{{ url_for('auth.logout') }}" method="post">
+      <button type="submit" class="btn-logout">Sign Out</button>
+    </form>
+  </div>
+</aside>
+
+<div class="main">
+  <div class="topbar">
+    <div class="page-title">Fill Form</div>
+  </div>
+  <div class="content">
+    <div id="form-view">
+      <div class="form-header">
+        <div class="form-title">{{ form.title }}</div>
+        {% if form.description %}<div class="form-desc">{{ form.description }}</div>{% endif %}
+      </div>
+      <div class="card">
+        <form id="fill-form" onsubmit="submitForm(event)" novalidate>
+          {% for field in form.fields %}
+          <div class="field-group" id="fg-{{ field.id }}">
+            <label for="f-{{ field.id }}">{{ field.label }}{% if field.is_required %}<span class="req">*</span>{% endif %}</label>
+            {% if field.field_type == 'textarea' %}
+              <textarea id="f-{{ field.id }}" name="{{ field.id }}" rows="3"
+                placeholder="{{ field.placeholder or '' }}"
+                {% if field.is_required %}required{% endif %}></textarea>
+            {% elif field.field_type == 'select' %}
+              <select id="f-{{ field.id }}" name="{{ field.id }}" {% if field.is_required %}required{% endif %}>
+                <option value="">— Select —</option>
+                {% if field.options %}
+                  {% for opt in field.options.split(',') %}
+                  <option value="{{ opt.strip() }}">{{ opt.strip() }}</option>
+                  {% endfor %}
+                {% endif %}
+              </select>
+            {% else %}
+              <input type="{{ field.field_type }}" id="f-{{ field.id }}" name="{{ field.id }}"
+                placeholder="{{ field.placeholder or '' }}"
+                {% if field.is_required %}required{% endif %}>
+            {% endif %}
+            <div class="field-error" id="fe-{{ field.id }}">This field is required.</div>
+          </div>
+          {% endfor %}
+          <button type="submit" class="btn-submit" id="submit-btn">Submit Response</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="success-card" id="success-card">
+      <div class="success-icon">✅</div>
+      <div class="success-title">Response Submitted</div>
+      <div class="success-sub">Your data has been recorded successfully.</div>
+      <a href="/forms" class="btn-link">Back to Forms</a>
+    </div>
+  </div>
+</div>
+
+<script>
+async function submitForm(e) {
+  e.preventDefault();
+  const inputs = e.target.querySelectorAll('[name]');
+  const answers = {};
+  let valid = true;
+  inputs.forEach(inp => {
+    const id = inp.name;
+    const val = inp.value.trim();
+    answers[id] = val;
+    const fg = document.getElementById('fg-' + id);
+    if (inp.required && !val) { fg.classList.add('invalid'); valid = false; }
+    else fg.classList.remove('invalid');
+  });
+  if (!valid) return;
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/forms/{{ form.id }}/responses', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ answers })
+    });
+    const data = await r.json();
+    if (data.ok) {
+      document.getElementById('form-view').style.display = 'none';
+      document.getElementById('success-card').style.display = '';
+    } else if (data.errors) {
+      Object.entries(data.errors).forEach(([fid, msg]) => {
+        const fg = document.getElementById('fg-' + fid);
+        if (fg) { fg.classList.add('invalid'); const fe = document.getElementById('fe-' + fid); if (fe) fe.textContent = msg; }
+      });
+      btn.disabled = false;
+    } else { alert(data.error || 'Submission failed'); btn.disabled = false; }
+  } catch(ex) { alert('Network error'); btn.disabled = false; }
+}
+</script>
+</body>
+</html>

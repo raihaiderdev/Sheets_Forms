@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard — DEN</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; display: flex; }
+
+  /* Sidebar */
+  .sidebar {
+    width: 240px; background: #1e293b; border-right: 1px solid #334155;
+    display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 100;
+  }
+  .sidebar-logo { padding: 24px 20px; border-bottom: 1px solid #334155; }
+  .sidebar-logo .logo-text { font-size: 20px; font-weight: 700; color: #38bdf8; letter-spacing: 1px; }
+  .sidebar-logo .logo-sub { font-size: 11px; color: #64748b; margin-top: 2px; }
+  .sidebar-user { padding: 16px 20px; border-bottom: 1px solid #334155; display: flex; align-items: center; gap: 12px; }
+  .avatar { width: 36px; height: 36px; border-radius: 50%; background: #0ea5e9; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; color: #fff; flex-shrink: 0; }
+  .user-name { font-size: 13px; font-weight: 600; color: #e2e8f0; }
+  .user-role { font-size: 11px; color: #64748b; margin-top: 2px; }
+  nav { flex: 1; padding: 12px 0; overflow-y: auto; }
+  .nav-label { font-size: 10px; font-weight: 600; color: #475569; text-transform: uppercase; letter-spacing: 1px; padding: 12px 20px 6px; }
+  .nav-link { display: flex; align-items: center; gap: 10px; padding: 10px 20px; color: #94a3b8; font-size: 13px; font-weight: 500; text-decoration: none; transition: all 0.15s; border-left: 3px solid transparent; }
+  .nav-link:hover { background: #0f172a; color: #e2e8f0; border-left-color: #38bdf8; }
+  .nav-link.active { background: rgba(56,189,248,0.1); color: #38bdf8; border-left-color: #38bdf8; }
+  .nav-icon { font-size: 16px; width: 20px; text-align: center; }
+  .sidebar-footer { padding: 16px 20px; border-top: 1px solid #334155; }
+  .btn-logout { width: 100%; padding: 9px; background: transparent; border: 1px solid #ef4444; color: #ef4444; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s; font-family: inherit; }
+  .btn-logout:hover { background: #ef4444; color: #fff; }
+
+  /* Main */
+  .main { margin-left: 240px; flex: 1; display: flex; flex-direction: column; }
+  .topbar { padding: 16px 32px; background: #1e293b; border-bottom: 1px solid #334155; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
+  .page-title { font-size: 18px; font-weight: 700; color: #f1f5f9; }
+  .topbar-meta { font-size: 12px; color: #64748b; }
+  .topbar-meta span { color: #38bdf8; font-weight: 600; }
+  .content { padding: 32px; flex: 1; }
+
+  /* Stats */
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 32px; }
+  .stat-card { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 20px; }
+  .stat-card .label { font-size: 12px; color: #64748b; font-weight: 500; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .stat-card .value { font-size: 28px; font-weight: 700; color: #38bdf8; }
+  .stat-card .sub { font-size: 11px; color: #475569; margin-top: 4px; }
+  .stat-card.green .value { color: #4ade80; }
+  .stat-card.purple .value { color: #a78bfa; }
+  .stat-card.orange .value { color: #fb923c; }
+
+  /* Section heading */
+  .section-heading { font-size: 14px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 16px; }
+
+  /* Action buttons */
+  .action-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 32px; }
+  .btn { padding: 10px 20px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; border: none; transition: all 0.15s; font-family: inherit; }
+  .btn-primary { background: #0ea5e9; color: #fff; }
+  .btn-primary:hover { background: #38bdf8; }
+  .btn-secondary { background: #334155; color: #e2e8f0; }
+  .btn-secondary:hover { background: #475569; }
+  .btn-danger { background: transparent; border: 1px solid #ef4444; color: #ef4444; padding: 6px 14px; font-size: 12px; }
+  .btn-danger:hover { background: #ef4444; color: #fff; }
+  .btn-sm { padding: 6px 14px; font-size: 12px; border-radius: 5px; font-family: inherit; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; border: 1px solid; transition: all 0.15s; }
+  .btn-sm.blue { border-color: #38bdf8; color: #38bdf8; background: transparent; }
+  .btn-sm.blue:hover { background: #38bdf8; color: #0f172a; }
+  .btn-sm.yellow { border-color: #fbbf24; color: #fbbf24; background: transparent; }
+  .btn-sm.yellow:hover { background: #fbbf24; color: #0f172a; }
+
+  /* Table */
+  .table-card { background: #1e293b; border: 1px solid #334155; border-radius: 8px; overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; }
+  thead th { padding: 12px 16px; text-align: left; font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #334155; background: #0f172a; }
+  tbody td { padding: 14px 16px; font-size: 13px; color: #cbd5e1; border-bottom: 1px solid #1e293b; vertical-align: middle; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: rgba(255,255,255,0.02); }
+  .td-actions { display: flex; gap: 8px; }
+  .empty-row td { text-align: center; padding: 48px; color: #475569; }
+
+  /* Badge */
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 99px; font-size: 11px; font-weight: 600; }
+  .badge-green { background: rgba(74,222,128,0.1); color: #4ade80; border: 1px solid rgba(74,222,128,0.3); }
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-text">DEN</div>
+    <div class="logo-sub">District Education Network</div>
+  </div>
+  <div class="sidebar-user">
+    <div class="avatar">{{ user.username[0].upper() }}</div>
+    <div>
+      <div class="user-name">{{ user.username }}</div>
+      <div class="user-role">{{ user.office }}</div>
+    </div>
+  </div>
+  <nav>
+    <div class="nav-label">Menu</div>
+    <a href="/dashboard" class="nav-link active"><span class="nav-icon">🏠</span> Dashboard</a>
+    <a href="/forms" class="nav-link"><span class="nav-icon">📋</span> My Forms</a>
+    <a href="/forms/new" class="nav-link"><span class="nav-icon">➕</span> Create Form</a>
+  </nav>
+  <div class="sidebar-footer">
+    <form action="{{ url_for('auth.logout') }}" method="post">
+      <button type="submit" class="btn-logout">Sign Out</button>
+    </form>
+  </div>
+</aside>
+
+<div class="main">
+  <div class="topbar">
+    <div class="page-title">Dashboard</div>
+    <div class="topbar-meta">Welcome, <span>{{ user.username }}</span> · {{ user.department }}</div>
+  </div>
+
+  <div class="content">
+
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="label">Total Forms</div>
+        <div class="value" id="stat-forms">—</div>
+        <div class="sub">Created by you</div>
+      </div>
+      <div class="stat-card green">
+        <div class="label">Total Responses</div>
+        <div class="value" id="stat-responses">—</div>
+        <div class="sub">Across all forms</div>
+      </div>
+      <div class="stat-card purple">
+        <div class="label">Office</div>
+        <div class="value" style="font-size:16px; margin-top:4px;">{{ user.office }}</div>
+        <div class="sub">{{ user.department }}</div>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="section-heading">Quick Actions</div>
+    <div class="action-row">
+      <a href="/forms/new" class="btn btn-primary">📊 Upload Excel Sheet</a>
+      <a href="/forms/new#manual" class="btn btn-secondary">✏️ Build Form Manually</a>
+      <a href="/forms" class="btn btn-secondary">📋 View All Forms</a>
+    </div>
+
+    <!-- Recent Forms -->
+    <div class="section-heading">Recent Forms</div>
+    <div class="table-card">
+      <table>
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Fields</th>
+            <th>Responses</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="forms-tbody">
+          <tr><td colspan="5" style="text-align:center;padding:32px;color:#475569;">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<script>
+async function loadForms() {
+  try {
+    const r = await fetch('/api/forms-summary');
+    const data = await r.json();
+    document.getElementById('stat-forms').textContent = data.form_count ?? 0;
+    document.getElementById('stat-responses').textContent = data.response_count ?? 0;
+    renderTable(data.forms || []);
+  } catch(e) {
+    document.getElementById('forms-tbody').innerHTML = '<tr><td colspan="5" style="text-align:center;padding:32px;color:#475569;">Could not load forms.</td></tr>';
+  }
+}
+
+function renderTable(forms) {
+  const tbody = document.getElementById('forms-tbody');
+  if (!forms.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:32px;color:#475569;">No forms yet — create your first one above.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = forms.slice(0, 10).map(f => `
+    <tr id="row-${f.id}">
+      <td><strong style="color:#f1f5f9">${esc(f.title)}</strong></td>
+      <td>${f.field_count}</td>
+      <td>${f.response_count}</td>
+      <td><span class="badge badge-green">Active</span></td>
+      <td>
+        <div class="td-actions">
+          <a href="/forms/${f.id}/fill" class="btn-sm blue">Fill</a>
+          <a href="/forms/${f.id}/responses" class="btn-sm yellow">Responses</a>
+          <button class="btn btn-danger" onclick="delForm(${f.id})">Delete</button>
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+async function delForm(id) {
+  if (!confirm('Delete this form and all its responses?')) return;
+  const r = await fetch('/api/forms/' + id, { method: 'DELETE' });
+  if (r.ok) document.getElementById('row-' + id)?.remove();
+  else alert('Could not delete.');
+}
+
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+loadForms();
+</script>
+</body>
+</html>

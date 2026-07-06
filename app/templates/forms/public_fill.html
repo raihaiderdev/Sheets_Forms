@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ form.title }}</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: #f1f5f9; color: #1e293b; min-height: 100vh; padding: 32px 16px; }
+
+  .page-header { text-align: center; margin-bottom: 32px; }
+  .org-name { font-size: 13px; font-weight: 600; color: #64748b; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; }
+  .org-logo { font-size: 24px; font-weight: 800; color: #0ea5e9; letter-spacing: 2px; margin-bottom: 4px; }
+
+  .form-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; max-width: 640px; margin: 0 auto; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.06); }
+
+  .form-banner { background: #0f172a; padding: 28px 32px; }
+  .form-title { font-size: 20px; font-weight: 700; color: #f1f5f9; margin-bottom: 6px; }
+  .form-desc { font-size: 13px; color: #94a3b8; line-height: 1.6; }
+  .form-meta { font-size: 11px; color: #64748b; margin-top: 10px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .form-meta span { display: flex; align-items: center; gap: 4px; }
+
+  .form-body { padding: 28px 32px; }
+
+  .field-group { margin-bottom: 20px; }
+  .field-group label { display: block; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 6px; }
+  .field-group label .req { color: #ef4444; margin-left: 2px; }
+  .field-group input, .field-group textarea, .field-group select {
+    width: 100%; background: #f8fafc; border: 1px solid #e2e8f0; color: #1e293b;
+    padding: 10px 14px; border-radius: 6px; font-size: 14px; font-family: inherit;
+    outline: none; transition: border-color 0.15s; resize: vertical; appearance: none;
+  }
+  .field-group input:focus, .field-group textarea:focus, .field-group select:focus {
+    border-color: #0ea5e9; box-shadow: 0 0 0 3px rgba(14,165,233,0.1); background: #fff;
+  }
+  .field-group input::placeholder, .field-group textarea::placeholder { color: #94a3b8; }
+  .field-group.invalid input, .field-group.invalid textarea, .field-group.invalid select {
+    border-color: #ef4444; background: #fff5f5;
+  }
+  .field-error { font-size: 12px; color: #ef4444; margin-top: 5px; display: none; }
+  .field-group.invalid .field-error { display: block; }
+
+  .form-footer { padding: 0 32px 28px; }
+  .btn-submit {
+    width: 100%; padding: 13px; background: #0ea5e9; color: #fff; border: none;
+    border-radius: 6px; font-size: 15px; font-weight: 600; cursor: pointer;
+    transition: background 0.15s; font-family: inherit;
+  }
+  .btn-submit:hover { background: #0284c7; }
+  .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+  .submit-note { font-size: 11px; color: #94a3b8; text-align: center; margin-top: 10px; }
+
+  /* Success */
+  .success-screen { display: none; padding: 56px 32px; text-align: center; }
+  .success-icon { font-size: 56px; margin-bottom: 16px; }
+  .success-title { font-size: 22px; font-weight: 700; color: #16a34a; margin-bottom: 8px; }
+  .success-sub { font-size: 14px; color: #64748b; line-height: 1.6; }
+
+  /* Progress bar */
+  .progress-bar { height: 3px; background: #e2e8f0; }
+  .progress-fill { height: 100%; background: #0ea5e9; width: 0%; transition: width 0.3s; }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <div class="org-logo">DEN</div>
+  <div class="org-name">District Education Network</div>
+</div>
+
+<div class="form-card">
+  <div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
+
+  <div id="form-view">
+    <div class="form-banner">
+      <div class="form-title">{{ form.title }}</div>
+      {% if form.description %}<div class="form-desc">{{ form.description }}</div>{% endif %}
+      <div class="form-meta">
+        <span>📋 {{ form.fields|length }} fields</span>
+        <span>⏱ ~{{ ((form.fields|length) * 0.5)|int + 1 }} min</span>
+      </div>
+    </div>
+
+    <form id="fill-form" onsubmit="submitForm(event)" novalidate>
+      <div class="form-body">
+        {% for field in form.fields %}
+        <div class="field-group" id="fg-{{ field.id }}">
+          <label for="f-{{ field.id }}">
+            {{ loop.index }}. {{ field.label }}{% if field.is_required %}<span class="req">*</span>{% endif %}
+          </label>
+          {% if field.field_type == 'textarea' %}
+            <textarea id="f-{{ field.id }}" name="{{ field.id }}" rows="3"
+              placeholder="{{ field.placeholder or 'Enter ' + field.label }}"
+              {% if field.is_required %}required{% endif %}></textarea>
+          {% elif field.field_type == 'select' %}
+            <select id="f-{{ field.id }}" name="{{ field.id }}" {% if field.is_required %}required{% endif %}>
+              <option value="">— Select an option —</option>
+              {% if field.options %}
+                {% for opt in field.options.split(',') %}
+                <option value="{{ opt.strip() }}">{{ opt.strip() }}</option>
+                {% endfor %}
+              {% endif %}
+            </select>
+          {% else %}
+            <input type="{{ field.field_type }}" id="f-{{ field.id }}" name="{{ field.id }}"
+              placeholder="{{ field.placeholder or 'Enter ' + field.label }}"
+              {% if field.is_required %}required{% endif %}>
+          {% endif %}
+          <div class="field-error" id="fe-{{ field.id }}">This field is required.</div>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="form-footer">
+        <button type="submit" class="btn-submit" id="submit-btn">Submit</button>
+        <div class="submit-note">Your response will be recorded securely.</div>
+      </div>
+    </form>
+  </div>
+
+  <div class="success-screen" id="success-screen">
+    <div class="success-icon">✅</div>
+    <div class="success-title">Thank you!</div>
+    <div class="success-sub">Your response has been submitted successfully.<br>You may close this page.</div>
+  </div>
+</div>
+
+<script>
+// Update progress bar as user fills fields
+const inputs = document.querySelectorAll('[name]');
+function updateProgress() {
+  const filled = Array.from(inputs).filter(i => i.value.trim()).length;
+  document.getElementById('progress').style.width = (filled / inputs.length * 100) + '%';
+}
+inputs.forEach(i => i.addEventListener('input', updateProgress));
+
+async function submitForm(e) {
+  e.preventDefault();
+  const answers = {};
+  let valid = true;
+
+  inputs.forEach(inp => {
+    const id = inp.name;
+    const val = inp.value.trim();
+    answers[id] = val;
+    const fg = document.getElementById('fg-' + id);
+    if (inp.required && !val) { fg.classList.add('invalid'); valid = false; }
+    else fg.classList.remove('invalid');
+  });
+
+  if (!valid) {
+    document.querySelector('.field-group.invalid')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
+
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'Submitting…';
+
+  try {
+    const r = await fetch('/api/public/forms/{{ form.id }}/responses', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ answers })
+    });
+    const data = await r.json();
+
+    if (data.ok) {
+      document.getElementById('progress').style.width = '100%';
+      document.getElementById('form-view').style.display = 'none';
+      document.getElementById('success-screen').style.display = '';
+    } else if (data.errors) {
+      Object.entries(data.errors).forEach(([fid, msg]) => {
+        const fg = document.getElementById('fg-' + fid);
+        if (fg) { fg.classList.add('invalid'); const fe = document.getElementById('fe-' + fid); if (fe) fe.textContent = msg; }
+      });
+      btn.disabled = false; btn.textContent = 'Submit';
+    } else {
+      alert(data.error || 'Submission failed. Please try again.');
+      btn.disabled = false; btn.textContent = 'Submit';
+    }
+  } catch(ex) {
+    alert('Network error. Please check your connection and try again.');
+    btn.disabled = false; btn.textContent = 'Submit';
+  }
+}
+</script>
+</body>
+</html>

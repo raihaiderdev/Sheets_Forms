@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Forms — DEN</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; display: flex; }
+  .sidebar { width: 240px; background: #1e293b; border-right: 1px solid #334155; display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 100; }
+  .sidebar-logo { padding: 24px 20px; border-bottom: 1px solid #334155; }
+  .logo-text { font-size: 20px; font-weight: 700; color: #38bdf8; letter-spacing: 1px; }
+  .logo-sub { font-size: 11px; color: #64748b; margin-top: 2px; }
+  .sidebar-user { padding: 16px 20px; border-bottom: 1px solid #334155; display: flex; align-items: center; gap: 12px; }
+  .avatar { width: 36px; height: 36px; border-radius: 50%; background: #0ea5e9; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; color: #fff; flex-shrink: 0; }
+  .user-name { font-size: 13px; font-weight: 600; color: #e2e8f0; }
+  .user-role { font-size: 11px; color: #64748b; margin-top: 2px; }
+  nav { flex: 1; padding: 12px 0; }
+  .nav-label { font-size: 10px; font-weight: 600; color: #475569; text-transform: uppercase; letter-spacing: 1px; padding: 12px 20px 6px; }
+  .nav-link { display: flex; align-items: center; gap: 10px; padding: 10px 20px; color: #94a3b8; font-size: 13px; font-weight: 500; text-decoration: none; transition: all 0.15s; border-left: 3px solid transparent; }
+  .nav-link:hover { background: #0f172a; color: #e2e8f0; border-left-color: #38bdf8; }
+  .nav-link.active { background: rgba(56,189,248,0.1); color: #38bdf8; border-left-color: #38bdf8; }
+  .nav-icon { font-size: 16px; width: 20px; text-align: center; }
+  .sidebar-footer { padding: 16px 20px; border-top: 1px solid #334155; }
+  .btn-logout { width: 100%; padding: 9px; background: transparent; border: 1px solid #ef4444; color: #ef4444; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s; font-family: inherit; }
+  .btn-logout:hover { background: #ef4444; color: #fff; }
+  .main { margin-left: 240px; flex: 1; display: flex; flex-direction: column; }
+  .topbar { padding: 16px 32px; background: #1e293b; border-bottom: 1px solid #334155; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
+  .page-title { font-size: 18px; font-weight: 700; color: #f1f5f9; }
+  .content { padding: 32px; flex: 1; }
+  .section-heading { font-size: 14px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 16px; }
+  .btn { padding: 10px 20px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; border: none; transition: all 0.15s; font-family: inherit; }
+  .btn-primary { background: #0ea5e9; color: #fff; }
+  .btn-primary:hover { background: #38bdf8; }
+  .btn-sm { padding: 6px 14px; font-size: 12px; border-radius: 5px; font-family: inherit; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; border: 1px solid; transition: all 0.15s; background: transparent; }
+  .btn-sm.blue { border-color: #38bdf8; color: #38bdf8; }
+  .btn-sm.blue:hover { background: #38bdf8; color: #0f172a; }
+  .btn-sm.yellow { border-color: #fbbf24; color: #fbbf24; }
+  .btn-sm.yellow:hover { background: #fbbf24; color: #0f172a; }
+  .btn-sm.red { border-color: #ef4444; color: #ef4444; }
+  .btn-sm.red:hover { background: #ef4444; color: #fff; }
+  .btn-sm.green { border-color: #4ade80; color: #4ade80; }
+  .btn-sm.green:hover { background: #4ade80; color: #0f172a; }
+
+  /* Share modal */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 200; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 28px; width: 100%; max-width: 520px; margin: 0 16px; }
+  .modal-title { font-size: 16px; font-weight: 700; color: #f1f5f9; margin-bottom: 6px; }
+  .modal-sub { font-size: 12px; color: #64748b; margin-bottom: 20px; }
+  .link-box { display: flex; gap: 8px; }
+  .link-input { flex: 1; background: #0f172a; border: 1px solid #334155; color: #e2e8f0; padding: 10px 14px; border-radius: 6px; font-size: 12px; font-family: inherit; outline: none; }
+  .btn-copy { padding: 10px 18px; background: #0ea5e9; color: #fff; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: background 0.15s; font-family: inherit; }
+  .btn-copy:hover { background: #38bdf8; }
+  .copy-note { font-size: 11px; color: #4ade80; margin-top: 8px; display: none; }
+  .modal-close { margin-top: 20px; width: 100%; padding: 9px; background: transparent; border: 1px solid #334155; color: #94a3b8; border-radius: 6px; font-size: 13px; cursor: pointer; font-family: inherit; }
+  .modal-close:hover { border-color: #64748b; color: #e2e8f0; }
+  .whatsapp-row { margin-top: 12px; }
+  .btn-whatsapp { display: inline-flex; align-items: center; gap: 8px; padding: 9px 18px; background: #16a34a; color: #fff; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none; transition: background 0.15s; font-family: inherit; }
+  .btn-whatsapp:hover { background: #15803d; }
+  .table-card { background: #1e293b; border: 1px solid #334155; border-radius: 8px; overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; }
+  thead th { padding: 12px 16px; text-align: left; font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #334155; background: #0f172a; }
+  tbody td { padding: 14px 16px; font-size: 13px; color: #cbd5e1; border-bottom: 1px solid rgba(51,65,85,0.5); vertical-align: middle; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: rgba(255,255,255,0.02); }
+  .td-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 99px; font-size: 11px; font-weight: 600; }
+  .badge-green { background: rgba(74,222,128,0.1); color: #4ade80; border: 1px solid rgba(74,222,128,0.3); }
+  .empty-state { text-align: center; padding: 56px 24px; color: #475569; }
+  .empty-state p { margin-bottom: 20px; font-size: 14px; }
+</style>
+</head>
+<body>
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-text">DEN</div>
+    <div class="logo-sub">District Education Network</div>
+  </div>
+  <div class="sidebar-user">
+    <div class="avatar">{{ user.username[0].upper() }}</div>
+    <div>
+      <div class="user-name">{{ user.username }}</div>
+      <div class="user-role">{{ user.office }}</div>
+    </div>
+  </div>
+  <nav>
+    <div class="nav-label">Menu</div>
+    <a href="/dashboard" class="nav-link"><span class="nav-icon">🏠</span> Dashboard</a>
+    <a href="/forms" class="nav-link active"><span class="nav-icon">📋</span> My Forms</a>
+    <a href="/forms/new" class="nav-link"><span class="nav-icon">➕</span> Create Form</a>
+  </nav>
+  <div class="sidebar-footer">
+    <form action="{{ url_for('auth.logout') }}" method="post">
+      <button type="submit" class="btn-logout">Sign Out</button>
+    </form>
+  </div>
+</aside>
+
+<div class="main">
+  <div class="topbar">
+    <div class="page-title">My Forms</div>
+    <a href="/forms/new" class="btn btn-primary">➕ New Form</a>
+  </div>
+  <div class="content">
+    <div class="section-heading">All Forms</div>
+    <div class="table-card">
+      {% if forms %}
+      <table>
+        <thead>
+          <tr>
+            <th>#</th><th>Title</th><th>Fields</th><th>Responses</th><th>Created</th><th>Status</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for f in forms %}
+          <tr id="row-{{ f.id }}">
+            <td style="color:#475569">{{ loop.index }}</td>
+            <td>
+              <strong style="color:#f1f5f9">{{ f.title }}</strong>
+              {% if f.description %}<br><span style="font-size:11px;color:#64748b">{{ f.description[:60] }}{% if f.description|length > 60 %}…{% endif %}</span>{% endif %}
+            </td>
+            <td>{{ f.fields|length }}</td>
+            <td>{{ f.responses|length }}</td>
+            <td style="color:#64748b">{{ f.created_at.strftime('%b %d, %Y') }}</td>
+            <td><span class="badge badge-green">Active</span></td>
+            <td>
+              <div class="td-actions">
+                <a href="/forms/{{ f.id }}/fill" class="btn-sm blue">Fill</a>
+                <a href="/forms/{{ f.id }}/responses" class="btn-sm yellow">Responses</a>
+                <button class="btn-sm green" onclick="showLink('{{ f.id }}', '{{ f.title }}')">🔗 Share</button>
+                <button class="btn-sm red" onclick="delForm({{ f.id }})">Delete</button>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty-state">
+        <p>No forms yet.</p>
+        <a href="/forms/new" class="btn btn-primary">Create your first form</a>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+<!-- Share Modal -->
+<div class="modal-overlay" id="share-modal">
+  <div class="modal">
+    <div class="modal-title">🔗 Share Form Link</div>
+    <div class="modal-sub" id="modal-form-title"></div>
+    <p style="font-size:12px;color:#94a3b8;margin-bottom:12px;">Share this link with field staff to collect data. No login required to fill the form.</p>
+    <div class="link-box">
+      <input type="text" class="link-input" id="share-link" readonly>
+      <button class="btn-copy" onclick="copyLink()">Copy</button>
+    </div>
+    <div class="copy-note" id="copy-note">✓ Link copied to clipboard!</div>
+    <div class="whatsapp-row">
+      <a class="btn-whatsapp" id="wa-link" href="#" target="_blank">📱 Share on WhatsApp</a>
+    </div>
+    <button class="modal-close" onclick="closeModal()">Close</button>
+  </div>
+</div>
+
+<script>
+async function delForm(id) {
+  if (!confirm('Delete this form and all responses?')) return;
+  const r = await fetch('/api/forms/' + id, { method: 'DELETE' });
+  if (r.ok) document.getElementById('row-' + id)?.remove();
+  else alert('Could not delete.');
+}
+
+function showLink(id, title) {
+  const url = location.origin + '/f/' + id;
+  document.getElementById('share-link').value = url;
+  document.getElementById('modal-form-title').textContent = title;
+  document.getElementById('copy-note').style.display = 'none';
+  document.getElementById('wa-link').href = 'https://wa.me/?text=' + encodeURIComponent('Please fill this form: ' + url);
+  document.getElementById('share-modal').classList.add('open');
+}
+
+function copyLink() {
+  const inp = document.getElementById('share-link');
+  inp.select(); inp.setSelectionRange(0, 99999);
+  navigator.clipboard.writeText(inp.value).catch(() => document.execCommand('copy'));
+  document.getElementById('copy-note').style.display = 'block';
+}
+
+function closeModal() {
+  document.getElementById('share-modal').classList.remove('open');
+}
+document.getElementById('share-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+</script>
+</body>
+</html>

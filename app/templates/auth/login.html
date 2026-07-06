@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DEN // Access Terminal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --void: #04060c;
+    --panel: rgba(10,18,32,0.6);
+    --grid-line: rgba(77,232,224,0.06);
+    --cyan: #4ff0e8;
+    --cyan-soft: rgba(79,240,232,0.5);
+    --magenta: #ff3d9a;
+    --gold: #f4c95d;
+    --text-main: #e8f6f8;
+    --text-dim: #5f7d92;
+    --danger: #ff4d5e;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    background: var(--void);
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--text-main);
+    overflow-x: hidden;
+  }
+
+  body {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+  }
+
+  /* ---------------- Background layers ---------------- */
+  .bg-grid {
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+    background-size: 42px 42px;
+    animation: grid-drift 22s linear infinite;
+    z-index: 0;
+  }
+  @keyframes grid-drift {
+    from { background-position: 0 0, 0 0; }
+    to { background-position: 0 420px, 420px 0; }
+  }
+
+  .bg-glow {
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(circle at 15% 20%, rgba(79,240,232,0.10), transparent 40%),
+      radial-gradient(circle at 85% 80%, rgba(255,61,154,0.08), transparent 45%);
+    z-index: 0;
+  }
+
+  .scan-line {
+    position: fixed;
+    left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+    opacity: 0.5;
+    animation: scan 6s linear infinite;
+    z-index: 1;
+    pointer-events: none;
+  }
+  @keyframes scan {
+    0% { top: -2%; }
+    100% { top: 102%; }
+  }
+
+  .corner-tag {
+    position: fixed;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    z-index: 1;
+  }
+  .corner-tag.tl { top: 22px; left: 24px; }
+  .corner-tag.tr { top: 22px; right: 24px; text-align: right; }
+  .corner-tag.bl { bottom: 22px; left: 24px; }
+  .corner-tag.br { bottom: 22px; right: 24px; text-align: right; }
+  .corner-tag strong { color: var(--cyan); }
+  .corner-tag .pulse { color: var(--gold); }
+
+  @keyframes blink {
+    0%, 45% { opacity: 1; }
+    50%, 100% { opacity: 0.15; }
+  }
+  .blink-dot { animation: blink 1.6s steps(1) infinite; }
+
+  /* ---------------- Main frame ---------------- */
+  .terminal {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    max-width: 920px;
+    display: grid;
+    grid-template-columns: 1.05fr 1fr;
+    background: var(--panel);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border: 1px solid rgba(79,240,232,0.18);
+    box-shadow: 0 0 0 1px rgba(79,240,232,0.05), 0 40px 100px rgba(0,0,0,0.6), 0 0 60px rgba(79,240,232,0.06);
+    clip-path: polygon(0 18px, 18px 0, 100% 0, 100% calc(100% - 18px), calc(100% - 18px) 100%, 0 100%);
+  }
+
+  .hud-corner {
+    position: absolute;
+    width: 26px;
+    height: 26px;
+    border: 2px solid var(--cyan);
+    opacity: 0.85;
+  }
+  .hud-corner.tl { top: -1px; left: -1px; border-right: none; border-bottom: none; }
+  .hud-corner.br { bottom: -1px; right: -1px; border-left: none; border-top: none; }
+
+  /* ---------------- Left identity panel ---------------- */
+  .id-panel {
+    position: relative;
+    padding: 46px 42px;
+    border-right: 1px solid rgba(79,240,232,0.14);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    overflow: hidden;
+    min-height: 560px;
+  }
+
+  .id-panel svg { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0.85; z-index: 0; }
+
+  .id-content { position: relative; z-index: 1; }
+
+  .brand-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 13px;
+    letter-spacing: 4px;
+    color: var(--text-dim);
+    margin-bottom: 46px;
+  }
+  .brand-row .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--cyan);
+    box-shadow: 0 0 10px var(--cyan);
+  }
+  .brand-row strong { color: var(--cyan); }
+
+  .eyebrow {
+    font-size: 11px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--gold);
+    display: block;
+    margin-bottom: 16px;
+  }
+
+  h1.headline {
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 900;
+    font-size: 34px;
+    line-height: 1.18;
+    letter-spacing: 0.5px;
+    margin-bottom: 20px;
+    background: linear-gradient(120deg, var(--text-main) 20%, var(--cyan) 55%, var(--magenta) 90%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .id-content p.desc {
+    color: var(--text-dim);
+    font-size: 13px;
+    line-height: 1.7;
+    max-width: 380px;
+  }
+
+  .readout {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    font-size: 11px;
+    color: var(--text-dim);
+    border-top: 1px solid rgba(79,240,232,0.14);
+    padding-top: 18px;
+  }
+  .readout .row { display: flex; justify-content: space-between; }
+  .readout strong { color: var(--cyan); letter-spacing: 1px; }
+
+  /* ---------------- Right form panel ---------------- */
+  .form-panel {
+    padding: 46px 42px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .mode-toggle {
+    display: flex;
+    border: 1px solid rgba(79,240,232,0.25);
+    margin-bottom: 30px;
+    position: relative;
+  }
+  .mode-toggle button {
+    flex: 1;
+    background: transparent;
+    border: none;
+    padding: 12px;
+    color: var(--text-dim);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    font-weight: 700;
+    cursor: pointer;
+    transition: color 0.25s ease;
+    position: relative;
+    z-index: 1;
+  }
+  .mode-toggle button.active { color: var(--void); }
+  .toggle-slider {
+    position: absolute;
+    top: 0; left: 0;
+    width: 50%; height: 100%;
+    background: var(--cyan);
+    box-shadow: 0 0 20px var(--cyan-soft);
+    transition: transform 0.3s cubic-bezier(.4,0,.2,1);
+    z-index: 0;
+  }
+  .mode-toggle.signup-active .toggle-slider { transform: translateX(100%); }
+
+  .panel-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+  .panel-sub {
+    color: var(--text-dim);
+    font-size: 12px;
+    margin-bottom: 28px;
+  }
+
+  .field { margin-bottom: 20px; }
+
+  .field label {
+    display: block;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--cyan);
+    margin-bottom: 8px;
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 500;
+  }
+
+  .field input,
+  .field select {
+    width: 100%;
+    background: rgba(4,8,16,0.6);
+    border: 1px solid rgba(79,240,232,0.22);
+    color: var(--text-main);
+    padding: 12px 14px;
+    font-size: 13px;
+    font-family: 'Share Tech Mono', monospace;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    appearance: none;
+  }
+
+  .field select {
+    background-image: linear-gradient(45deg, transparent 50%, var(--cyan) 50%),
+                       linear-gradient(135deg, var(--cyan) 50%, transparent 50%);
+    background-position: calc(100% - 20px) center, calc(100% - 15px) center;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+    cursor: pointer;
+  }
+
+  .field input::placeholder { color: rgba(95,125,146,0.7); }
+
+  .field input:focus,
+  .field select:focus {
+    border-color: var(--cyan);
+    box-shadow: 0 0 0 1px var(--cyan), 0 0 18px rgba(79,240,232,0.25);
+  }
+
+  .field .hint { font-size: 10px; color: var(--text-dim); margin-top: 6px; }
+  .field .error { font-size: 10px; color: var(--danger); margin-top: 6px; display: none; }
+  .field.invalid input,
+  .field.invalid select { border-color: var(--danger); box-shadow: 0 0 12px rgba(255,77,94,0.2); }
+  .field.invalid .error { display: block; }
+
+  .submit-btn {
+    width: 100%;
+    padding: 14px;
+    background: transparent;
+    color: var(--cyan);
+    border: 1px solid var(--cyan);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    cursor: pointer;
+    margin-top: 8px;
+    position: relative;
+    overflow: hidden;
+    transition: color 0.25s ease, box-shadow 0.25s ease;
+    z-index: 0;
+  }
+  .submit-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--cyan);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.3s ease;
+    z-index: -1;
+  }
+  .submit-btn:hover::before { transform: scaleX(1); }
+  .submit-btn:hover { color: var(--void); box-shadow: 0 0 24px rgba(79,240,232,0.35); }
+
+  .foot-note { text-align: center; font-size: 11px; color: var(--text-dim); margin-top: 24px; }
+  .foot-note a { color: var(--cyan); text-decoration: none; cursor: pointer; }
+
+  .panel-hidden { display: none; }
+
+  .success-banner {
+    display: none;
+    background: rgba(79,240,232,0.06);
+    border: 1px solid rgba(79,240,232,0.3);
+    color: var(--cyan);
+    padding: 11px 14px;
+    font-size: 12px;
+    margin-bottom: 20px;
+    letter-spacing: 0.5px;
+  }
+  .success-banner::before { content: '> '; color: var(--gold); }
+
+  @media (max-width: 820px) {
+    .terminal { grid-template-columns: 1fr; max-width: 460px; }
+    .id-panel { border-right: none; border-bottom: 1px solid rgba(79,240,232,0.14); min-height: 0; padding: 36px 30px; }
+    .form-panel { padding: 36px 30px; }
+    h1.headline { font-size: 26px; }
+    .corner-tag { display: none; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="bg-grid"></div>
+  <div class="bg-glow"></div>
+  <div class="scan-line"></div>
+
+  <div class="corner-tag tl">DEN // ACCESS<br>PROTOCOL <span class="pulse blink-dot">●</span> SECURE</div>
+  <div class="corner-tag tr">DISTRICT NODE<br><strong>BAHAWALNAGAR-01</strong></div>
+  <div class="corner-tag bl">SYS.CLOCK <span id="clock">--:--:--</span></div>
+  <div class="corner-tag br">14 OFFICES<br>ONLINE</div>
+
+  <div class="terminal">
+    <div class="hud-corner tl"></div>
+    <div class="hud-corner br"></div>
+
+    <div class="id-panel">
+      <svg viewBox="0 0 460 560" preserveAspectRatio="xMidYMid slice">
+        <line x1="70" y1="100" x2="230" y2="200" stroke="#1f6b6a" stroke-width="1"/>
+        <line x1="230" y1="200" x2="380" y2="120" stroke="#1f6b6a" stroke-width="1"/>
+        <line x1="230" y1="200" x2="110" y2="320" stroke="#1f6b6a" stroke-width="1"/>
+        <line x1="230" y1="200" x2="350" y2="340" stroke="#1f6b6a" stroke-width="1"/>
+        <line x1="110" y1="320" x2="180" y2="450" stroke="#1f6b6a" stroke-width="1"/>
+        <line x1="350" y1="340" x2="280" y2="470" stroke="#1f6b6a" stroke-width="1"/>
+        <line x1="180" y1="450" x2="280" y2="470" stroke="#1f6b6a" stroke-width="1"/>
+        <circle cx="230" cy="200" r="6" fill="#4ff0e8"><animate attributeName="opacity" values="1;0.3;1" dur="2.2s" repeatCount="indefinite"/></circle>
+        <circle cx="70" cy="100" r="3.5" fill="#5f7d92"/>
+        <circle cx="380" cy="120" r="3.5" fill="#5f7d92"/>
+        <circle cx="110" cy="320" r="3.5" fill="#5f7d92"/>
+        <circle cx="350" cy="340" r="3.5" fill="#5f7d92"/>
+        <circle cx="180" cy="450" r="3.5" fill="#5f7d92"/>
+        <circle cx="280" cy="470" r="3.5" fill="#ff3d9a"><animate attributeName="opacity" values="0.4;1;0.4" dur="1.8s" repeatCount="indefinite"/></circle>
+      </svg>
+
+      <div class="id-content">
+        <div class="brand-row"><span class="dot"></span>DEN <strong>// NETWORK CORE</strong></div>
+        <span class="eyebrow">Office Access Protocol</span>
+        <h1 class="headline">Every district office.<br>One credential.</h1>
+        <p class="desc">Authenticate to coordinate reporting, correspondence, and records across every DEO and Dy. DEO office in the network. Your access is scoped to your department and office.</p>
+      </div>
+
+      <div class="readout">
+        <div class="row"><span>NODES REGISTERED</span><strong>14 / 14</strong></div>
+        <div class="row"><span>ENCRYPTION</span><strong>ACTIVE</strong></div>
+        <div class="row"><span>SESSION PROTOCOL</span><strong>OAuth · PG</strong></div>
+      </div>
+    </div>
+
+    <div class="form-panel">
+      <div class="mode-toggle" id="toggle-track">
+        <div class="toggle-slider"></div>
+        <button type="button" id="tab-login" class="active" onclick="setMode('login')">Sign In</button>
+        <button type="button" id="tab-signup" onclick="setMode('signup')">Register</button>
+      </div>
+
+      <!-- LOGIN -->
+      <div id="panel-login">
+        <div class="panel-title">Identity Verification</div>
+        <p class="panel-sub">Enter credentials to access the network.</p>
+
+        <div class="success-banner" id="login-success">ACCESS GRANTED — redirecting to dashboard.</div>
+
+        <form onsubmit="handleLogin(event)" novalidate>
+          <div class="field" id="f-login-email">
+            <label for="login-email">Email</label>
+            <input type="email" id="login-email" placeholder="you@department.gov.pk" required>
+            <div class="error">Enter a valid email address.</div>
+          </div>
+
+          <div class="field" id="f-login-password">
+            <label for="login-password">Password</label>
+            <input type="password" id="login-password" placeholder="••••••••" required>
+            <div class="error">Password is required.</div>
+          </div>
+
+          <button type="submit" class="submit-btn">Authenticate</button>
+        </form>
+
+        <p class="foot-note">Office not registered? <a onclick="setMode('signup')">Create access</a></p>
+      </div>
+
+      <!-- SIGNUP -->
+      <div id="panel-signup" class="panel-hidden">
+        <div class="panel-title">Register Office Node</div>
+        <p class="panel-sub">Bind a new account to your department and office.</p>
+
+        <div class="success-banner" id="signup-success">NODE REGISTERED — you may now sign in.</div>
+
+        <form onsubmit="handleSignup(event)" novalidate>
+          <div class="field" id="f-username">
+            <label for="username">Username</label>
+            <input type="text" id="username" placeholder="Choose a username" required minlength="3">
+            <div class="error">Username must be at least 3 characters.</div>
+          </div>
+
+          <div class="field" id="f-email">
+            <label for="email">Email</label>
+            <input type="email" id="email" placeholder="you@department.gov.pk" required>
+            <div class="error">Enter a valid email address.</div>
+          </div>
+
+          <div class="field" id="f-department">
+            <label for="department">Department</label>
+            <input type="text" id="department" placeholder="e.g. School Education Department" required>
+            <div class="error">Department is required.</div>
+          </div>
+
+          <div class="field" id="f-office">
+            <label for="office">Office</label>
+            <select id="office" required>
+              <option value="" disabled selected>Select office</option>
+              <option value="CEO">CEO</option>
+              <option value="DEO-SE">DEO-SE</option>
+              <option value="DEO-M-EE">DEO-M-EE</option>
+              <option value="DEO-W-EE">DEO-W-EE</option>
+              <option value="DY.DEO-M-BWN">DY.DEO-M-BWN</option>
+              <option value="DY.DEO-M-CTN">DY.DEO-M-CTN</option>
+              <option value="DY.DEO-M-HND">DY.DEO-M-HND</option>
+              <option value="DY.DEO-M-MND">DY.DEO-M-MND</option>
+              <option value="DY.DEO-M-FTS">DY.DEO-M-FTS</option>
+              <option value="DY.DEO-M-BWN-FEMALE">DY.DEO-M-BWN-FEMALE</option>
+              <option value="DY.DEO-M-CTN-FEMALE">DY.DEO-M-CTN-FEMALE</option>
+              <option value="DY.DEO-M-HND-FEMALE">DY.DEO-M-HND-FEMALE</option>
+              <option value="DY.DEO-M-MND-FEMALE">DY.DEO-M-MND-FEMALE</option>
+              <option value="DY.DEO-M-FTS-FEMALE">DY.DEO-M-FTS-FEMALE</option>
+            </select>
+            <div class="error">Select an office.</div>
+          </div>
+
+          <div class="field" id="f-password">
+            <label for="password">Password</label>
+            <input type="password" id="password" placeholder="Create a password" required minlength="8">
+            <div class="hint">Minimum 8 characters.</div>
+            <div class="error">Password must be at least 8 characters.</div>
+          </div>
+
+          <button type="submit" class="submit-btn">Bind Account</button>
+        </form>
+
+        <p class="foot-note">Already registered? <a onclick="setMode('login')">Sign in</a></p>
+      </div>
+
+    </div>
+  </div>
+
+<script>
+function setMode(mode) {
+  const login = document.getElementById('panel-login');
+  const signup = document.getElementById('panel-signup');
+  const tabLogin = document.getElementById('tab-login');
+  const tabSignup = document.getElementById('tab-signup');
+  const track = document.getElementById('toggle-track');
+
+  if (mode === 'login') {
+    login.classList.remove('panel-hidden');
+    signup.classList.add('panel-hidden');
+    tabLogin.classList.add('active');
+    tabSignup.classList.remove('active');
+    track.classList.remove('signup-active');
+  } else {
+    signup.classList.remove('panel-hidden');
+    login.classList.add('panel-hidden');
+    tabSignup.classList.add('active');
+    tabLogin.classList.remove('active');
+    track.classList.add('signup-active');
+  }
+}
+
+function markField(id, valid) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.toggle('invalid', !valid);
+}
+
+function showServerErrors(errors) {
+  const map = {
+    username: 'f-username',
+    email: 'f-email',
+    department: 'f-department',
+    office: 'f-office',
+    password: 'f-password'
+  };
+  Object.keys(errors).forEach(key => {
+    const fieldId = map[key];
+    if (!fieldId) return;
+    const field = document.getElementById(fieldId);
+    if (!field) return;
+    field.classList.add('invalid');
+    const errEl = field.querySelector('.error');
+    if (errEl) errEl.textContent = errors[key];
+  });
+}
+
+async function handleSignup(e) {
+  e.preventDefault();
+  const username = document.getElementById('username').value.trim();
+  const email = document.getElementById('email').value.trim();
+  const department = document.getElementById('department').value.trim();
+  const office = document.getElementById('office').value;
+  const password = document.getElementById('password').value;
+
+  let valid = true;
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+  markField('f-username', username.length >= 3); if (username.length < 3) valid = false;
+  markField('f-email', emailOk); if (!emailOk) valid = false;
+  markField('f-department', department.length > 0); if (!department) valid = false;
+  markField('f-office', office.length > 0); if (!office) valid = false;
+  markField('f-password', password.length >= 8); if (password.length < 8) valid = false;
+
+  if (!valid) return;
+
+  const submitBtn = e.target.querySelector('.submit-btn');
+  submitBtn.disabled = true;
+
+  try {
+    const res = await fetch('/api/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, email, department, office, password })
+    });
+    const data = await res.json();
+
+    if (!res.ok || !data.ok) {
+      showServerErrors(data.errors || {});
+      return;
+    }
+
+    document.getElementById('signup-success').style.display = 'block';
+    setTimeout(() => { setMode('login'); }, 1300);
+  } catch (err) {
+    alert('Network error — could not reach the server.');
+  } finally {
+    submitBtn.disabled = false;
+  }
+}
+
+async function handleLogin(e) {
+  e.preventDefault();
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+
+  let valid = true;
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+  markField('f-login-email', emailOk); if (!emailOk) valid = false;
+  markField('f-login-password', password.length > 0); if (!password) valid = false;
+
+  if (!valid) return;
+
+  const submitBtn = e.target.querySelector('.submit-btn');
+  submitBtn.disabled = true;
+
+  try {
+    const res = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await res.json();
+
+    if (!res.ok || !data.ok) {
+      showServerErrors(data.errors || {});
+      return;
+    }
+
+    document.getElementById('login-success').style.display = 'block';
+    window.location.href = data.redirect || '/dashboard';
+  } catch (err) {
+    alert('Network error — could not reach the server.');
+  } finally {
+    submitBtn.disabled = false;
+  }
+}
+
+function tickClock() {
+  const el = document.getElementById('clock');
+  if (!el) return;
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  el.textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+}
+tickClock();
+setInterval(tickClock, 1000);
+</script>
+
+</body>
+</html>
