@@ -136,16 +136,18 @@
 <script>
 async function submitForm(e) {
   e.preventDefault();
-  const inputs = e.target.querySelectorAll('[name]');
+  const inputs = e.target.querySelectorAll('input[name], textarea[name], select[name]');
   const answers = {};
   let valid = true;
   inputs.forEach(inp => {
     const id = inp.name;
-    const val = inp.value.trim();
+    const val = (inp.value || '').trim();
     answers[id] = val;
     const fg = document.getElementById('fg-' + id);
-    if (inp.required && !val) { fg.classList.add('invalid'); valid = false; }
-    else fg.classList.remove('invalid');
+    if (fg) {
+      if (inp.required && !val) { fg.classList.add('invalid'); valid = false; }
+      else fg.classList.remove('invalid');
+    }
   });
   if (!valid) return;
   const btn = document.getElementById('submit-btn');

@@ -126,11 +126,11 @@
 </div>
 
 <script>
-// Update progress bar as user fills fields
-const inputs = document.querySelectorAll('[name]');
+const inputs = document.querySelectorAll('input[name], textarea[name], select[name]');
+
 function updateProgress() {
-  const filled = Array.from(inputs).filter(i => i.value.trim()).length;
-  document.getElementById('progress').style.width = (filled / inputs.length * 100) + '%';
+  const filled = Array.from(inputs).filter(i => (i.value || '').trim()).length;
+  document.getElementById('progress').style.width = (filled / Math.max(inputs.length, 1) * 100) + '%';
 }
 inputs.forEach(i => i.addEventListener('input', updateProgress));
 
@@ -141,11 +141,13 @@ async function submitForm(e) {
 
   inputs.forEach(inp => {
     const id = inp.name;
-    const val = inp.value.trim();
+    const val = (inp.value || '').trim();
     answers[id] = val;
     const fg = document.getElementById('fg-' + id);
-    if (inp.required && !val) { fg.classList.add('invalid'); valid = false; }
-    else fg.classList.remove('invalid');
+    if (fg) {
+      if (inp.required && !val) { fg.classList.add('invalid'); valid = false; }
+      else fg.classList.remove('invalid');
+    }
   });
 
   if (!valid) {
