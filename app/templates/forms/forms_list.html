@@ -38,6 +38,8 @@
   .btn-sm.blue:hover { background: #38bdf8; color: #0f172a; }
   .btn-sm.yellow { border-color: #fbbf24; color: #fbbf24; }
   .btn-sm.yellow:hover { background: #fbbf24; color: #0f172a; }
+  .btn-sm.green { border-color: #4ade80; color: #4ade80; }
+  .btn-sm.green:hover { background: #4ade80; color: #0f172a; }
   .btn-sm.red { border-color: #ef4444; color: #ef4444; }
   .btn-sm.red:hover { background: #ef4444; color: #fff; }
   .btn-sm.green { border-color: #4ade80; color: #4ade80; }
@@ -129,6 +131,7 @@
               <div class="td-actions">
                 <a href="/forms/{{ f.id }}/fill" class="btn-sm blue">Fill</a>
                 <a href="/forms/{{ f.id }}/responses" class="btn-sm yellow">Responses</a>
+                <a href="/forms/{{ f.id }}/responses/download" class="btn-sm green">⬇ Excel</a>
                 <button class="btn-sm green" onclick="showLink('{{ f.id }}', '{{ f.title }}')">🔗 Share</button>
                 <button class="btn-sm red" onclick="delForm({{ f.id }})">Delete</button>
               </div>

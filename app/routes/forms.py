@@ -329,6 +329,91 @@ def api_update_single_response(form_id, response_id):
     except Exception as exc:
         return jsonify({"ok": False, "error": str(exc)}), 500
 
+# ---------------------------------------------------------------------------
+# Download responses as Excel
+# ---------------------------------------------------------------------------
+
+@forms_bp.route("/forms/<int:form_id>/responses/download")
+@login_required
+def download_responses(form_id):
+    form = get_form(form_id)
+    if not form or form.created_by != current_user.id:
+        abort(403)
+
+    import io as _io
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from flask import make_response
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Responses"
+
+    # Header styling
+    header_font  = Font(bold=True, color="FFFFFF", size=11)
+    header_fill  = PatternFill("solid", fgColor="0F172A")
+    header_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    thin = Side(style="thin", color="334155")
+    header_border = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    headers = ["#", "Respondent Email", form.unique_field_label or "Unique Key",
+               "Submitted At"] + [f.label for f in form.fields]
+
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=h)
+        cell.font      = header_font
+        cell.fill      = header_fill
+        cell.alignment = header_align
+        cell.border    = header_border
+
+    ws.row_dimensions[1].height = 28
+
+    # Data rows
+    data_align  = Alignment(vertical="top", wrap_text=False)
+    data_border = Border(left=thin, right=thin, top=thin, bottom=thin)
+    alt_fill    = PatternFill("solid", fgColor="1E293B")
+
+    for row_idx, resp in enumerate(form.responses, 2):
+        ans_map   = {a.field_id: a.value for a in resp.answers}
+        email_val = resp.respondent_email or (resp.submitter.email if resp.submitter else "")
+        unique_val = resp.unique_key_value or ""
+        submitted  = resp.submitted_at.strftime("%b %d, %Y %H:%M") if resp.submitted_at else ""
+
+        row_data = [row_idx - 1, email_val, unique_val, submitted] + \
+                   [ans_map.get(f.id, "") for f in form.fields]
+
+        row_fill = alt_fill if row_idx % 2 == 0 else None
+        for col, val in enumerate(row_data, 1):
+            cell = ws.cell(row=row_idx, column=col, value=val)
+            cell.alignment = data_align
+            cell.border    = data_border
+            if row_fill:
+                cell.fill = row_fill
+
+    # Column widths
+    ws.column_dimensions["A"].width = 5
+    ws.column_dimensions["B"].width = 28
+    ws.column_dimensions["C"].width = 20
+    ws.column_dimensions["D"].width = 18
+    for col_idx in range(5, len(headers) + 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(col_idx)].width = 22
+
+    ws.freeze_panes = "A2"
+
+    buf = _io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    safe_title = "".join(c if c.isalnum() or c in " _-" else "_" for c in form.title)[:50]
+    filename   = f"{safe_title}_responses.xlsx"
+
+    response = make_response(buf.read())
+    response.headers["Content-Type"] = \
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
+
+
 @forms_bp.route("/api/forms/<int:form_id>", methods=["GET"])
 @login_required
 def api_get_form(form_id):
