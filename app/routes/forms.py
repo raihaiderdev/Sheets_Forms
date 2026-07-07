@@ -75,8 +75,15 @@ def api_parse_excel():
     data = f.read(MAX_UPLOAD_BYTES + 1)
     if len(data) > MAX_UPLOAD_BYTES:
         return jsonify({"ok": False, "error": "File too large (max 10 MB)."}), 413
+
+    # sheet_index sent as form field (0-based), defaults to 0
     try:
-        result = parse_excel(data)
+        sheet_index = int(request.form.get("sheet_index", 0))
+    except (ValueError, TypeError):
+        sheet_index = 0
+
+    try:
+        result = parse_excel(data, sheet_index=sheet_index)
     except ValueError as exc:
         return jsonify({"ok": False, "error": str(exc)}), 422
     except Exception as exc:

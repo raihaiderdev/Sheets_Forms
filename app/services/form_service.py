@@ -61,10 +61,12 @@ def _row_score(row_values: list[str]) -> float:
     return score
 
 
-def parse_excel(file_bytes: bytes) -> dict:
+def parse_excel(file_bytes: bytes, sheet_index: int = 0) -> dict:
     """
-    Read the full sheet and return:
+    Read the specified sheet and return:
       {
+        "sheets": [...],         # list of all sheet names in the workbook
+        "sheet_name": str,       # name of the sheet parsed
         "headers": [...],        # best-guess header row values
         "header_row": int,       # 1-based row index
         "sheet_title": str,      # text from rows BEFORE the header row
@@ -75,7 +77,16 @@ def parse_excel(file_bytes: bytes) -> dict:
     wb = openpyxl.load_workbook(
         filename=io.BytesIO(file_bytes), read_only=True, data_only=True
     )
-    ws = wb.worksheets[0]
+
+    sheet_names = wb.sheetnames
+    if not sheet_names:
+        wb.close()
+        raise ValueError("The workbook contains no sheets.")
+
+    # Clamp index
+    sheet_index = max(0, min(sheet_index, len(sheet_names) - 1))
+    ws = wb.worksheets[sheet_index]
+    selected_name = sheet_names[sheet_index]
 
     # Collect all rows (up to 50 to keep it fast)
     all_rows: list[list[str]] = []
@@ -116,6 +127,8 @@ def parse_excel(file_bytes: bytes) -> dict:
             preview.append(filled)
 
     return {
+        "sheets": sheet_names,
+        "sheet_name": selected_name,
         "headers": header_row_values,
         "header_row": best_idx + 1,   # 1-based
         "sheet_title": sheet_title,

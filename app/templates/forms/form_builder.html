@@ -154,6 +154,16 @@
           <div class="upload-sub" id="upload-sub">or click to browse · .xlsx / .xls · max 10 MB</div>
         </div>
         <div id="excel-preview" style="display:none;"></div>
+
+        <!-- Sheet selector — shown only when workbook has multiple sheets -->
+        <div id="sheet-selector" style="display:none;margin-top:16px;">
+          <div style="font-size:12px;font-weight:600;color:#94a3b8;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">
+            📂 Workbook contains multiple sheets — select which sheet to use:
+          </div>
+          <select id="sheet-select" onchange="onSheetChange()"
+            style="width:100%;background:#0f172a;border:1px solid #38bdf8;color:#e2e8f0;padding:10px 14px;border-radius:6px;font-size:13px;font-family:inherit;outline:none;">
+          </select>
+        </div>
       </div>
 
       <div class="card" id="excel-meta" style="display:none;">
@@ -239,21 +249,50 @@ zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add(
 zone.addEventListener('dragleave', () => zone.classList.remove('over'));
 zone.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('over'); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
 
+let uploadedFile = null;   // keep reference for re-parsing when sheet changes
+
 async function handleFile(file) {
+  uploadedFile = file;
+  await parseSheet(file, 0);
+}
+
+async function parseSheet(file, sheetIndex) {
   document.getElementById('upload-sub').textContent = 'Reading file…';
   const fd = new FormData();
   fd.append('file', file);
+  fd.append('sheet_index', sheetIndex);
   try {
     const r = await fetch('/api/forms/parse-excel', { method: 'POST', body: fd });
     const data = await r.json();
     if (!data.ok) { toast(data.error || 'Failed to read file', 'error'); return; }
+    showSheetSelector(data, sheetIndex);
     showPreview(data);
   } catch(e) { toast('Network error', 'error'); }
   document.getElementById('upload-sub').textContent = 'or click to browse · .xlsx / .xls · max 10 MB';
 }
 
+function showSheetSelector(data, activeIndex) {
+  const sheets = data.sheets || [];
+  if (sheets.length <= 1) {
+    document.getElementById('sheet-selector').style.display = 'none';
+    return;
+  }
+  const sel = document.getElementById('sheet-select');
+  sel.innerHTML = sheets.map((name, i) =>
+    `<option value="${i}" ${i === activeIndex ? 'selected' : ''}>${esc(name)}</option>`
+  ).join('');
+  document.getElementById('sheet-selector').style.display = '';
+}
+
+async function onSheetChange() {
+  if (!uploadedFile) return;
+  const idx = parseInt(document.getElementById('sheet-select').value) || 0;
+  document.getElementById('excel-title').value = '';  // reset so new sheet title fills in
+  await parseSheet(uploadedFile, idx);
+}
+
 function showPreview(data) {
-  const { headers, header_row, sheet_title, preview } = data;
+  const { headers, header_row, sheet_title, sheet_name, preview } = data;
 
   // Info bar
   let infoHtml = `<div style="font-size:12px;color:#64748b;margin-top:16px;margin-bottom:12px;">`;
@@ -277,10 +316,11 @@ function showPreview(data) {
   document.getElementById('excel-preview').innerHTML = infoHtml;
   document.getElementById('excel-preview').style.display = '';
 
-  // Pre-fill title from sheet title
-  if (sheet_title && !document.getElementById('excel-title').value) {
-    const shortTitle = sheet_title.split('|')[0].trim();
-    document.getElementById('excel-title').value = shortTitle.length > 100 ? shortTitle.slice(0,100) : shortTitle;
+  // Pre-fill title: use sheet_name if no title detected, or sheet_title
+  const titleEl = document.getElementById('excel-title');
+  if (!titleEl.value) {
+    const suggested = sheet_title ? sheet_title.split('|')[0].trim() : sheet_name;
+    titleEl.value = suggested.length > 100 ? suggested.slice(0, 100) : suggested;
   }
 
   const list = document.getElementById('excel-fields');
