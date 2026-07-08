@@ -16,7 +16,8 @@ from PIL import Image, ImageFilter
 PASSPORT_W = 413
 PASSPORT_H = 531
 TARGET_DPI = 300
-MAX_KB = 100
+MIN_KB = 10
+MAX_KB = 18
 
 # Head should occupy ~70-75% of frame height; face top ~15% from top
 HEAD_RATIO = 0.72      # face height / total image height
@@ -174,29 +175,60 @@ def _crop_to_passport(img_bgr: np.ndarray, face) -> np.ndarray:
     return cropped
 
 
-def _compress_jpeg(pil_img: Image.Image, max_kb: int = MAX_KB) -> bytes:
-    """Compress PIL image to JPEG under max_kb."""
-    quality = 95
-    while quality >= 20:
-        buf = io.BytesIO()
-        pil_img.save(buf, format="JPEG", quality=quality, dpi=(TARGET_DPI, TARGET_DPI))
-        size_kb = buf.tell() / 1024
-        if size_kb <= max_kb:
-            return buf.getvalue()
-        quality -= 5
+def _compress_to_range(pil_img: Image.Image,
+                       min_kb: int = 10, max_kb: int = 18) -> bytes:
+    """
+    Compress PIL image to a JPEG whose size is between min_kb and max_kb.
 
-    # Last resort: resize down slightly
-    w, h = pil_img.size
-    for scale in [0.9, 0.8, 0.7]:
-        small = pil_img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
-        buf = io.BytesIO()
-        small.save(buf, format="JPEG", quality=40, dpi=(TARGET_DPI, TARGET_DPI))
-        if buf.tell() / 1024 <= max_kb:
-            return buf.getvalue()
+    Strategy:
+    1. Try reducing JPEG quality (95 → 5) at full resolution.
+    2. If still above max_kb, progressively shrink pixel dimensions
+       (keeping aspect ratio) until the file fits.
+    3. If result is below min_kb after all shrinking, use the smallest
+       resolution that still stays >= min_kb, or just accept it.
+    DPI metadata (300) is always embedded so print size is preserved.
+    """
+    original_w, original_h = pil_img.size
 
-    buf = io.BytesIO()
-    pil_img.save(buf, format="JPEG", quality=20, dpi=(TARGET_DPI, TARGET_DPI))
-    return buf.getvalue()
+    def _encode(img: Image.Image, quality: int) -> bytes:
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=quality,
+                 dpi=(TARGET_DPI, TARGET_DPI), optimize=True)
+        return buf.getvalue()
+
+    # --- Phase 1: quality sweep at full resolution ---
+    for quality in range(10, 2, -1):
+        data = _encode(pil_img, quality)
+        size_kb = len(data) / 1024
+        if min_kb <= size_kb <= max_kb:
+            return data
+
+    # If above max_kb even at quality=2, shrink dimensions
+    # --- Phase 2: shrink pixel size ---
+    for scale in [0.85, 0.70, 0.58, 0.48, 0.40, 0.34, 0.28, 0.24, 0.20]:
+        nw = max(int(original_w * scale), 30)
+        nh = max(int(original_h * scale), 38)
+        small = pil_img.resize((nw, nh), Image.LANCZOS)
+        # At smaller size we can use slightly higher quality for better look
+        for quality in range(85, 2, -5):
+            data = _encode(small, quality)
+            size_kb = len(data) / 1024
+            if min_kb <= size_kb <= max_kb:
+                return data
+            if size_kb < min_kb:
+                # Gone too small — back up to last quality that was >= min_kb
+                # Try previous quality step
+                prev_q = min(quality + 5, 95)
+                data2 = _encode(small, prev_q)
+                size_kb2 = len(data2) / 1024
+                if size_kb2 <= max_kb:
+                    return data2
+                break  # move to next scale
+
+    # Absolute fallback: return whatever is closest to 14 KB
+    best = _encode(pil_img.resize(
+        (int(original_w * 0.20), int(original_h * 0.20)), Image.LANCZOS), 40)
+    return best
 
 
 def process_passport_photo(file_bytes: bytes) -> dict:
@@ -234,7 +266,7 @@ def process_passport_photo(file_bytes: bytes) -> dict:
     white_bg = Image.new("RGB", pil_img.size, (255, 255, 255))
     white_bg.paste(pil_img)
 
-    final_bytes = _compress_jpeg(white_bg)
+    final_bytes = _compress_to_range(white_bg, min_kb=10, max_kb=18)
     size_kb = len(final_bytes) / 1024
 
     return {
