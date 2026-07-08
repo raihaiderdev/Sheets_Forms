@@ -170,9 +170,36 @@ function handleFiles(files) {
   document.getElementById('upload-sub').textContent = `${valid.length} file(s) selected — ready to process`;
   document.getElementById('btn-row').style.display = '';
   document.getElementById('download-all-btn').style.display = 'none';
-  document.getElementById('results-section').style.display = 'none';
-  document.getElementById('results-grid').innerHTML = '';
   processedResults = [];
+
+  // Show immediate local previews
+  const grid = document.getElementById('results-grid');
+  grid.innerHTML = '';
+  document.getElementById('results-section').style.display = '';
+  document.getElementById('results-heading').textContent = `Selected (${valid.length}) — click "Process All Photos" to start`;
+
+  valid.forEach((file, i) => {
+    grid.insertAdjacentHTML('beforeend',
+      `<div class="photo-card" id="card-${i}">
+         <div style="aspect-ratio:413/531;background:#0f172a;overflow:hidden;display:flex;align-items:center;justify-content:center;">
+           <img id="thumb-${i}" style="width:100%;height:100%;object-fit:cover;display:none;">
+           <span id="spinner-${i}" style="color:#475569;font-size:11px;">Loading preview…</span>
+         </div>
+         <div class="photo-info">
+           <div class="photo-name">${esc(file.name)}</div>
+           <div class="photo-meta"><span style="color:#475569;font-size:10px;">Pending</span></div>
+         </div>
+       </div>`
+    );
+    const reader = new FileReader();
+    reader.onload = e => {
+      const t = document.getElementById('thumb-' + i);
+      const s = document.getElementById('spinner-' + i);
+      if (t) { t.src = e.target.result; t.style.display = 'block'; }
+      if (s) s.style.display = 'none';
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 async function processAll() {
@@ -188,28 +215,25 @@ async function processAll() {
   processedResults = [];
 
   document.getElementById('results-section').style.display = '';
-  document.getElementById('results-grid').innerHTML = '';
+  // Don't clear grid — update existing preview cards in place
 
   for (let i = 0; i < selectedFiles.length; i++) {
     const file = selectedFiles[i];
     label.textContent = `Processing ${i + 1} of ${selectedFiles.length}: ${file.name}`;
     fill.style.width = ((i / selectedFiles.length) * 100) + '%';
 
-    // Add placeholder card
-    const cardId = 'card-' + i;
-    document.getElementById('results-grid').insertAdjacentHTML('beforeend',
-      `<div class="photo-card" id="${cardId}">
-         <div style="aspect-ratio:413/531;background:#1e293b;display:flex;align-items:center;justify-content:center;color:#475569;font-size:12px;">⏳ Processing…</div>
-         <div class="photo-info"><div class="photo-name">${esc(file.name)}</div></div>
-       </div>`
-    );
+    // Update existing preview card to show "processing" state
+    const card = document.getElementById('card-' + i);
+    if (card) {
+      card.querySelector('.photo-meta').innerHTML = '<span style="color:#38bdf8;font-size:10px;">⏳ Processing…</span>';
+    }
 
     try {
       const fd = new FormData();
       fd.append('file', file);
       const r = await fetch('/api/photos/process', { method: 'POST', body: fd });
       const data = await r.json();
-      const card = document.getElementById(cardId);
+      const card = document.getElementById('card-' + i);
 
       if (data.ok) {
         processedResults.push({ filename: file.name, b64: data.image_b64, face_found: data.face_found, size_kb: data.size_kb });
