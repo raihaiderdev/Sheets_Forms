@@ -21,10 +21,12 @@ def create_app(env=None):
     from app.routes.auth import auth_bp
     from app.routes.dashboard import dashboard_bp
     from app.routes.forms import forms_bp
+    from app.routes.photos import photos_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(forms_bp)
+    app.register_blueprint(photos_bp)
 
     @app.route("/")
     def root():
