@@ -215,29 +215,44 @@ async function processAll() {
   processedResults = [];
 
   document.getElementById('results-section').style.display = '';
-  // Don't clear grid — update existing preview cards in place
 
   for (let i = 0; i < selectedFiles.length; i++) {
     const file = selectedFiles[i];
     label.textContent = `Processing ${i + 1} of ${selectedFiles.length}: ${file.name}`;
     fill.style.width = ((i / selectedFiles.length) * 100) + '%';
 
-    // Update existing preview card to show "processing" state
+    // Mark card as processing
     const card = document.getElementById('card-' + i);
     if (card) {
-      card.querySelector('.photo-meta').innerHTML = '<span style="color:#38bdf8;font-size:10px;">⏳ Processing…</span>';
+      const meta = card.querySelector('.photo-meta');
+      if (meta) meta.innerHTML = '<span style="color:#38bdf8;font-size:10px;">⏳ Processing…</span>';
     }
 
     try {
       const fd = new FormData();
       fd.append('file', file);
       const r = await fetch('/api/photos/process', { method: 'POST', body: fd });
+
+      // Handle non-JSON responses (502, 500 HTML pages)
+      const contentType = r.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        const errCard = document.getElementById('card-' + i);
+        if (errCard) errCard.innerHTML = `
+          <div style="aspect-ratio:413/531;background:#1e293b;display:flex;align-items:center;justify-content:center;padding:12px;">
+            <span style="color:#f87171;font-size:11px;text-align:center;">❌ Server error ${r.status}</span>
+          </div>
+          <div class="photo-info"><div class="photo-name">${esc(file.name)}</div></div>
+          <div class="error-overlay">HTTP ${r.status} — server error</div>`;
+        processedResults.push({ filename: file.name, error: 'HTTP ' + r.status });
+        continue;
+      }
+
       const data = await r.json();
-      const card = document.getElementById('card-' + i);
+      const resultCard = document.getElementById('card-' + i);
 
       if (data.ok) {
         processedResults.push({ filename: file.name, b64: data.image_b64, face_found: data.face_found, size_kb: data.size_kb });
-        card.innerHTML = `
+        if (resultCard) resultCard.innerHTML = `
           <img src="data:image/jpeg;base64,${data.image_b64}" alt="${esc(file.name)}">
           <div class="photo-info">
             <div class="photo-name">${esc(file.name)}</div>
@@ -249,7 +264,7 @@ async function processAll() {
           <button class="dl-btn" onclick="downloadOne(${processedResults.length - 1})">⬇ Download</button>`;
       } else {
         processedResults.push({ filename: file.name, error: data.error });
-        if (card) card.innerHTML = `
+        if (resultCard) resultCard.innerHTML = `
           <div style="aspect-ratio:413/531;background:#1e293b;display:flex;align-items:center;justify-content:center;padding:12px;">
             <span style="color:#f87171;font-size:12px;text-align:center;">❌ Failed</span>
           </div>
@@ -257,8 +272,14 @@ async function processAll() {
           <div class="error-overlay">${esc(data.error || 'Processing failed')}</div>`;
       }
     } catch(ex) {
-      const card = document.getElementById(cardId);
-      card.innerHTML = `<div style="padding:16px;color:#f87171;font-size:12px;">Network error</div>`;
+      console.error('processAll error:', ex);
+      const errCard = document.getElementById('card-' + i);
+      if (errCard) errCard.innerHTML = `
+        <div style="aspect-ratio:413/531;background:#1e293b;display:flex;align-items:center;justify-content:center;padding:12px;">
+          <span style="color:#f87171;font-size:12px;text-align:center;">❌ Network error</span>
+        </div>
+        <div class="photo-info"><div class="photo-name">${esc(file.name)}</div></div>
+        <div class="error-overlay">Network error — check connection</div>`;
       processedResults.push({ filename: file.name, error: 'Network error' });
     }
   }
