@@ -249,7 +249,7 @@ async function processAll() {
           <button class="dl-btn" onclick="downloadOne(${processedResults.length - 1})">⬇ Download</button>`;
       } else {
         processedResults.push({ filename: file.name, error: data.error });
-        card.innerHTML = `
+        if (card) card.innerHTML = `
           <div style="aspect-ratio:413/531;background:#1e293b;display:flex;align-items:center;justify-content:center;padding:12px;">
             <span style="color:#f87171;font-size:12px;text-align:center;">❌ Failed</span>
           </div>

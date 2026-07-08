@@ -1,277 +1,253 @@
 """
 Passport photo processing service.
-- Detects face using OpenCV Haar cascade
-- Removes background using GrabCut + contour fill → white
-- Crops and centers face with standard head-room ratios
-- Resizes to 413×531 px (35×45 mm @ 300 DPI)
-- Compresses JPEG under 100 KB
+Pipeline: load → orient → detect face → crop → resize → white bg → compress 10-18 KB
+Background removal uses a simple edge-aware approach (no GrabCut — unreliable on headless servers).
 """
 import io
 import cv2
 import numpy as np
-from PIL import Image, ImageFilter
+from PIL import Image, ImageOps, ExifTags
 
 
-# Passport dimensions: 35×45 mm @ 300 DPI  →  413 × 531 px
 PASSPORT_W = 413
 PASSPORT_H = 531
 TARGET_DPI = 300
 MIN_KB = 10
 MAX_KB = 18
 
-# Head should occupy ~70-75% of frame height; face top ~15% from top
-HEAD_RATIO = 0.72      # face height / total image height
-TOP_MARGIN = 0.12      # space above head as fraction of total height
+HEAD_RATIO  = 0.70   # face height / total crop height
+TOP_MARGIN  = 0.13   # space above face top / total crop height
 
 
-def _load_cv2(file_bytes: bytes) -> np.ndarray:
-    arr = np.frombuffer(file_bytes, np.uint8)
-    img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
-    if img is None:
-        raise ValueError("Could not decode image.")
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _load_pil(file_bytes: bytes) -> Image.Image:
+    """Load image, auto-rotate by EXIF orientation."""
+    img = Image.open(io.BytesIO(file_bytes))
+    img = ImageOps.exif_transpose(img)   # fix phone portrait orientation
+    img = img.convert("RGB")
     return img
 
 
-def _detect_face(img_bgr: np.ndarray):
-    """Return (x, y, w, h) of the largest face, or None.
-    Uses FaceDetectorYN (OpenCV 5) with fallback to legacy Haar cascade.
-    """
-    h, w = img_bgr.shape[:2]
+def _pil_to_cv2(pil_img: Image.Image) -> np.ndarray:
+    return cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
 
-    # Try FaceDetectorYN (OpenCV 5+)
-    try:
-        detector = cv2.FaceDetectorYN.create(
-            model="",          # empty = use built-in default
-            config="",
-            input_size=(w, h),
-            score_threshold=0.6,
-            nms_threshold=0.3,
-            top_k=5,
-        )
-        _, faces = detector.detect(img_bgr)
-        if faces is not None and len(faces) > 0:
-            # faces columns: x, y, w, h, ...
-            best = max(faces, key=lambda f: f[2] * f[3])
-            return (int(best[0]), int(best[1]), int(best[2]), int(best[3]))
-    except Exception:
-        pass
 
-    # Fallback: try legacy CascadeClassifier if available
+def _cv2_to_pil(bgr: np.ndarray) -> Image.Image:
+    return Image.fromarray(cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB))
+
+
+# ---------------------------------------------------------------------------
+# Face detection
+# ---------------------------------------------------------------------------
+
+def _detect_face(bgr: np.ndarray):
+    """Return (x, y, w, h) or None. Tries Haar cascade only — reliable everywhere."""
+    gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
+    gray = cv2.equalizeHist(gray)
+
+    # Try to load Haar cascade
     try:
-        cascade_path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
-        cascade = cv2.CascadeClassifier(cascade_path)
+        path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+        cascade = cv2.CascadeClassifier(path)
         if not cascade.empty():
-            gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
-            gray = cv2.equalizeHist(gray)
-            faces = cascade.detectMultiScale(
-                gray, scaleFactor=1.1, minNeighbors=5, minSize=(60, 60)
-            )
-            if len(faces) == 0:
+            for (sf, mn) in [(1.1, 5), (1.05, 3), (1.03, 2)]:
                 faces = cascade.detectMultiScale(
-                    gray, scaleFactor=1.05, minNeighbors=3, minSize=(40, 40)
+                    gray, scaleFactor=sf, minNeighbors=mn, minSize=(40, 40)
                 )
-            if len(faces) > 0:
-                return max(faces, key=lambda f: f[2] * f[3])
+                if len(faces) > 0:
+                    return tuple(map(int, max(faces, key=lambda f: f[2] * f[3])))
     except Exception:
         pass
-
-    # Last resort: use center-weighted face estimation (assume face is upper-center)
     return None
 
 
-def _remove_background_grabcut(img_bgr: np.ndarray) -> np.ndarray:
+# ---------------------------------------------------------------------------
+# Background removal — simple threshold-based approach (no GrabCut)
+# ---------------------------------------------------------------------------
+
+def _white_background(pil_img: Image.Image) -> Image.Image:
     """
-    Use GrabCut to separate foreground from background.
-    Returns BGRA image with background set to white (255,255,255).
+    Replace background with white using a simple grab-cut-free approach:
+    1. Convert to LAB colour space
+    2. Use k-means (k=2) to separate fg/bg
+    3. Composite subject onto white canvas
+
+    Falls back to returning the image on white canvas untouched if anything fails.
     """
-    h, w = img_bgr.shape[:2]
-
-    # Initial rect: leave 5% margin all around for GrabCut
-    margin_x = max(5, int(w * 0.05))
-    margin_y = max(5, int(h * 0.05))
-    rect = (margin_x, margin_y, w - 2 * margin_x, h - 2 * margin_y)
-
-    mask = np.zeros((h, w), np.uint8)
-    bgd_model = np.zeros((1, 65), np.float64)
-    fgd_model = np.zeros((1, 65), np.float64)
-
     try:
-        cv2.grabCut(img_bgr, mask, rect, bgd_model, fgd_model, 5, cv2.GC_INIT_WITH_RECT)
-    except cv2.error:
-        # GrabCut fails on very small images — return original with white bg attempt
-        return _simple_white_bg(img_bgr)
+        bgr = _pil_to_cv2(pil_img)
+        h, w = bgr.shape[:2]
 
-    # Mask: 0=bg, 1=fg, 2=prob_bg, 3=prob_fg
-    fg_mask = np.where((mask == cv2.GC_FGD) | (mask == cv2.GC_PR_FGD), 255, 0).astype(np.uint8)
+        # Downscale for speed if large
+        scale = 1.0
+        if w > 600:
+            scale = 600 / w
+            small = cv2.resize(bgr, (int(w * scale), int(h * scale)))
+        else:
+            small = bgr.copy()
 
-    # Morphological cleanup
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-    fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_CLOSE, kernel, iterations=3)
-    fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_OPEN,  kernel, iterations=1)
+        # Convert to float for k-means
+        data = small.reshape((-1, 3)).astype(np.float32)
+        criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
+        _, labels, centers = cv2.kmeans(
+            data, 2, None, criteria, 3, cv2.KMEANS_PP_CENTERS
+        )
 
-    # Feather edges slightly
-    fg_mask_blur = cv2.GaussianBlur(fg_mask, (5, 5), 0)
+        # The background cluster is the one whose centroid is closest to the corners
+        labels_img = labels.reshape(small.shape[:2])
+        sh, sw = labels_img.shape
 
-    # Build BGRA
-    bgra = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2BGRA)
-    bgra[:, :, 3] = fg_mask_blur
+        # Sample corners
+        corner_pixels = [
+            labels_img[0, 0], labels_img[0, sw-1],
+            labels_img[sh-1, 0], labels_img[sh-1, sw-1]
+        ]
+        from collections import Counter
+        bg_label = Counter(corner_pixels).most_common(1)[0][0]
+        fg_label = 1 - bg_label
 
-    # Composite onto white
-    white = np.ones_like(img_bgr, dtype=np.uint8) * 255
-    alpha = fg_mask_blur.astype(np.float32) / 255.0
-    for c in range(3):
-        bgra[:, :, c] = (
-            img_bgr[:, :, c].astype(np.float32) * alpha +
-            white[:, :, c].astype(np.float32) * (1 - alpha)
-        ).astype(np.uint8)
-    bgra[:, :, 3] = 255  # fully opaque result
-    return bgra
+        # Build mask at original size
+        if scale != 1.0:
+            mask_small = (labels_img == fg_label).astype(np.uint8) * 255
+            mask = cv2.resize(mask_small, (w, h), interpolation=cv2.INTER_LINEAR)
+        else:
+            mask = (labels_img == fg_label).astype(np.uint8) * 255
+
+        # Morphological cleanup
+        k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, k, iterations=3)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN,  k, iterations=1)
+        mask = cv2.GaussianBlur(mask, (5, 5), 0)
+
+        # Composite on white
+        alpha = mask.astype(np.float32) / 255.0
+        white = np.ones_like(bgr, dtype=np.float32) * 255
+        orig  = bgr.astype(np.float32)
+        composite = (orig * alpha[:, :, None] + white * (1 - alpha[:, :, None])).astype(np.uint8)
+
+        return _cv2_to_pil(composite)
+
+    except Exception:
+        # Fallback: just put on white canvas
+        canvas = Image.new("RGB", pil_img.size, (255, 255, 255))
+        canvas.paste(pil_img)
+        return canvas
 
 
-def _simple_white_bg(img_bgr: np.ndarray) -> np.ndarray:
-    """Fallback: just return image as BGRA with full opacity (no bg removal)."""
-    return cv2.cvtColor(img_bgr, cv2.COLOR_BGR2BGRA)
+# ---------------------------------------------------------------------------
+# Face-centred crop
+# ---------------------------------------------------------------------------
 
-
-def _crop_to_passport(img_bgr: np.ndarray, face) -> np.ndarray:
-    """
-    Crop the image so the face is centered with standard passport proportions.
-    face = (x, y, w, h)
-    """
-    ih, iw = img_bgr.shape[:2]
+def _crop_portrait(pil_img: Image.Image, face) -> Image.Image:
+    """Crop image around detected face using passport proportions."""
+    iw, ih = pil_img.size
     fx, fy, fw, fh = face
 
-    # Face center
-    cx = fx + fw // 2
-    cy = fy + fh // 2
-
-    # Desired crop height so face occupies HEAD_RATIO of it
     crop_h = int(fh / HEAD_RATIO)
     crop_w = int(crop_h * PASSPORT_W / PASSPORT_H)
 
-    # Top of crop: face top should be at TOP_MARGIN * crop_h below crop top
-    top = fy - int(TOP_MARGIN * crop_h)
+    cx = fx + fw // 2
+    top  = fy - int(TOP_MARGIN * crop_h)
     left = cx - crop_w // 2
 
-    # Clamp to image bounds — pad with white if needed
+    # Clamp
     pad_top    = max(0, -top)
     pad_left   = max(0, -left)
     pad_bottom = max(0, (top + crop_h) - ih)
     pad_right  = max(0, (left + crop_w) - iw)
 
-    top_c  = max(0, top)
-    left_c = max(0, left)
-    bot_c  = min(ih, top + crop_h)
-    right_c = min(iw, left + crop_w)
-
-    cropped = img_bgr[top_c:bot_c, left_c:right_c]
+    crop = pil_img.crop((
+        max(0, left), max(0, top),
+        min(iw, left + crop_w), min(ih, top + crop_h)
+    ))
 
     if pad_top or pad_left or pad_bottom or pad_right:
-        cropped = cv2.copyMakeBorder(
-            cropped, pad_top, pad_bottom, pad_left, pad_right,
-            cv2.BORDER_CONSTANT, value=(255, 255, 255)
+        canvas = Image.new("RGB",
+            (crop.width + pad_left + pad_right, crop.height + pad_top + pad_bottom),
+            (255, 255, 255)
         )
+        canvas.paste(crop, (pad_left, pad_top))
+        crop = canvas
 
-    return cropped
+    return crop
 
+
+# ---------------------------------------------------------------------------
+# Compression
+# ---------------------------------------------------------------------------
 
 def _compress_to_range(pil_img: Image.Image,
-                       min_kb: int = 10, max_kb: int = 18) -> bytes:
-    """
-    Compress PIL image to a JPEG whose size is between min_kb and max_kb.
+                       min_kb: int = MIN_KB, max_kb: int = MAX_KB) -> bytes:
+    ow, oh = pil_img.size
 
-    Strategy:
-    1. Try reducing JPEG quality (95 → 5) at full resolution.
-    2. If still above max_kb, progressively shrink pixel dimensions
-       (keeping aspect ratio) until the file fits.
-    3. If result is below min_kb after all shrinking, use the smallest
-       resolution that still stays >= min_kb, or just accept it.
-    DPI metadata (300) is always embedded so print size is preserved.
-    """
-    original_w, original_h = pil_img.size
-
-    def _encode(img: Image.Image, quality: int) -> bytes:
+    def _enc(img, q):
         buf = io.BytesIO()
-        img.save(buf, format="JPEG", quality=quality,
+        img.save(buf, format="JPEG", quality=q,
                  dpi=(TARGET_DPI, TARGET_DPI), optimize=True)
         return buf.getvalue()
 
-    # --- Phase 1: quality sweep at full resolution ---
-    for quality in range(10, 2, -1):
-        data = _encode(pil_img, quality)
-        size_kb = len(data) / 1024
-        if min_kb <= size_kb <= max_kb:
+    # Phase 1: quality sweep at full size
+    for q in range(10, 1, -1):
+        data = _enc(pil_img, q)
+        kb = len(data) / 1024
+        if min_kb <= kb <= max_kb:
             return data
 
-    # If above max_kb even at quality=2, shrink dimensions
-    # --- Phase 2: shrink pixel size ---
-    for scale in [0.85, 0.70, 0.58, 0.48, 0.40, 0.34, 0.28, 0.24, 0.20]:
-        nw = max(int(original_w * scale), 30)
-        nh = max(int(original_h * scale), 38)
+    # Phase 2: shrink dimensions
+    for scale in [0.85, 0.70, 0.58, 0.48, 0.40, 0.34, 0.28, 0.24, 0.20, 0.16]:
+        nw, nh = max(int(ow * scale), 20), max(int(oh * scale), 26)
         small = pil_img.resize((nw, nh), Image.LANCZOS)
-        # At smaller size we can use slightly higher quality for better look
-        for quality in range(85, 2, -5):
-            data = _encode(small, quality)
-            size_kb = len(data) / 1024
-            if min_kb <= size_kb <= max_kb:
+        for q in range(85, 2, -5):
+            data = _enc(small, q)
+            kb = len(data) / 1024
+            if min_kb <= kb <= max_kb:
                 return data
-            if size_kb < min_kb:
-                # Gone too small — back up to last quality that was >= min_kb
-                # Try previous quality step
-                prev_q = min(quality + 5, 95)
-                data2 = _encode(small, prev_q)
-                size_kb2 = len(data2) / 1024
-                if size_kb2 <= max_kb:
-                    return data2
-                break  # move to next scale
+            if kb < min_kb:
+                prev = _enc(small, min(q + 5, 95))
+                if len(prev) / 1024 <= max_kb:
+                    return prev
+                break
 
-    # Absolute fallback: return whatever is closest to 14 KB
-    best = _encode(pil_img.resize(
-        (int(original_w * 0.20), int(original_h * 0.20)), Image.LANCZOS), 40)
-    return best
+    return _enc(pil_img.resize((max(int(ow * 0.18), 20), max(int(oh * 0.18), 26)), Image.LANCZOS), 50)
 
+
+# ---------------------------------------------------------------------------
+# Main entry point
+# ---------------------------------------------------------------------------
 
 def process_passport_photo(file_bytes: bytes) -> dict:
-    """
-    Full pipeline: load → detect face → remove bg → crop → resize → compress.
+    # 1. Load + fix orientation
+    pil_img = _load_pil(file_bytes)
 
-    Returns:
-        {
-            "ok": True,
-            "image": bytes,       # final JPEG bytes
-            "face_found": bool,
-            "size_kb": float,
-        }
-    """
-    img_bgr = _load_cv2(file_bytes)
-    face = _detect_face(img_bgr)
+    # 2. Detect face
+    bgr = _pil_to_cv2(pil_img)
+    face = _detect_face(bgr)
     face_found = face is not None
 
-    # Background removal
-    bgra = _remove_background_grabcut(img_bgr)
-    # Convert BGRA back to BGR (white bg already composited)
-    result_bgr = bgra[:, :, :3]
+    # 3. Background → white
+    pil_white = _white_background(pil_img)
 
-    # Crop around face if detected
+    # 4. Crop around face
     if face_found:
-        result_bgr = _crop_to_passport(result_bgr, face)
+        pil_white = _crop_portrait(pil_white, face)
 
-    # Resize to passport dimensions
-    resized = cv2.resize(result_bgr, (PASSPORT_W, PASSPORT_H), interpolation=cv2.INTER_LANCZOS4)
+    # 5. Resize to passport dimensions
+    pil_resized = pil_white.resize((PASSPORT_W, PASSPORT_H), Image.LANCZOS)
 
-    # Convert to PIL for final save
-    pil_img = Image.fromarray(cv2.cvtColor(resized, cv2.COLOR_BGR2RGB))
+    # 6. Ensure pure white canvas
+    canvas = Image.new("RGB", (PASSPORT_W, PASSPORT_H), (255, 255, 255))
+    canvas.paste(pil_resized)
 
-    # Ensure white background (no transparency artifacts)
-    white_bg = Image.new("RGB", pil_img.size, (255, 255, 255))
-    white_bg.paste(pil_img)
-
-    final_bytes = _compress_to_range(white_bg, min_kb=10, max_kb=18)
-    size_kb = len(final_bytes) / 1024
+    # 7. Compress to 10–18 KB
+    final_bytes = _compress_to_range(canvas, MIN_KB, MAX_KB)
+    size_kb = round(len(final_bytes) / 1024, 1)
 
     return {
         "ok": True,
         "image": final_bytes,
         "face_found": face_found,
-        "size_kb": round(size_kb, 1),
+        "size_kb": size_kb,
     }
