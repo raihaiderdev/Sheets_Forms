@@ -12,6 +12,7 @@ def create_app(env=None):
     selected_config = config_by_name.get(env, config_by_name["development"])
     app.config.from_object(selected_config)
     app.config["SQLALCHEMY_DATABASE_URI"] = selected_config.init_db_uri()
+    app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50 MB max upload
 
     # --- extensions ---
     db.init_app(app)

@@ -119,10 +119,10 @@ nav { flex: 1; padding: 12px 0; overflow-y: auto; }
     <div class="card">
       <div class="section-heading">Upload Photos</div>
       <div class="upload-zone" id="upload-zone">
-        <input type="file" id="file-input" accept=".jpg,.jpeg,.png,.bmp,.webp,.tiff" multiple>
+        <input type="file" id="file-input" accept=".jpg,.jpeg,.png,.bmp,.webp,.tiff,.tif,.heic,.heif,image/*" multiple>
         <div class="upload-icon">📁</div>
         <div class="upload-title">Drop photos here or click to browse</div>
-        <div class="upload-sub" id="upload-sub">Up to 100 images · JPG, PNG, BMP, WEBP, TIFF · max 20 MB each</div>
+        <div class="upload-sub" id="upload-sub">Up to 100 images · JPG, PNG, BMP, WEBP, TIFF, HEIC · max 25 MB each</div>
       </div>
 
       <div class="progress-wrap" id="progress-wrap">
@@ -163,7 +163,7 @@ document.getElementById('file-input').addEventListener('change', e => {
 });
 
 function handleFiles(files) {
-  const valid = files.filter(f => /\.(jpe?g|png|bmp|webp|tiff?)$/i.test(f.name));
+  const valid = files.filter(f => /\.(jpe?g|png|bmp|webp|tiff?|heic|heif)$/i.test(f.name) || !f.name.includes('.'));
   if (valid.length === 0) { toast('No supported image files found.', 'error'); return; }
   if (valid.length > 100) { toast('Maximum 100 images at a time.', 'error'); return; }
   selectedFiles = valid;
@@ -284,7 +284,7 @@ async function downloadAll() {
 function clearAll() {
   selectedFiles = []; processedResults = [];
   document.getElementById('file-input').value = '';
-  document.getElementById('upload-sub').textContent = 'Up to 100 images · JPG, PNG, BMP, WEBP, TIFF · max 20 MB each';
+  document.getElementById('upload-sub').textContent = 'Up to 100 images · JPG, PNG, BMP, WEBP, TIFF, HEIC · max 25 MB each';
   document.getElementById('btn-row').style.display = 'none';
   document.getElementById('progress-wrap').style.display = 'none';
   document.getElementById('results-section').style.display = 'none';

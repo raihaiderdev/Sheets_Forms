@@ -7,13 +7,19 @@ from app.services.photo_service import process_passport_photo
 
 photos_bp = Blueprint("photos", __name__, template_folder="../templates")
 
-ALLOWED_EXTS   = {"jpg", "jpeg", "png", "bmp", "webp", "tiff"}
-MAX_FILE_BYTES = 20 * 1024 * 1024   # 20 MB per image
+ALLOWED_EXTS   = {"jpg", "jpeg", "png", "bmp", "webp", "tiff", "tif", "heic", "heif"}
+MAX_FILE_BYTES = 25 * 1024 * 1024   # 25 MB per image
 MAX_FILES      = 100
 
 
 def _ext_ok(filename: str) -> bool:
-    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTS
+    """Case-insensitive extension check. Also accepts files with no extension (try anyway)."""
+    if not filename:
+        return False
+    if "." not in filename:
+        return True   # no extension — let the image decoder decide
+    ext = filename.rsplit(".", 1)[1].lower().strip()
+    return ext in ALLOWED_EXTS
 
 
 # ---------------------------------------------------------------------------
@@ -42,7 +48,7 @@ def api_process_photo():
 
     data = f.read(MAX_FILE_BYTES + 1)
     if len(data) > MAX_FILE_BYTES:
-        return jsonify({"ok": False, "error": "File too large (max 20 MB)."}), 413
+        return jsonify({"ok": False, "error": "File too large (max 25 MB)."}), 413
 
     try:
         result = process_passport_photo(data)
