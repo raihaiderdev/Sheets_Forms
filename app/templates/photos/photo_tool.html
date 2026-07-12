@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Passport Photo Tool — DEN</title>
+<title>Photo Tools — DEN</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
@@ -29,22 +29,30 @@ nav { flex: 1; padding: 12px 0; overflow-y: auto; }
 .main { margin-left: 240px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
 .topbar { padding: 16px 32px; background: #1e293b; border-bottom: 1px solid #334155; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
 .page-title { font-size: 18px; font-weight: 700; color: #f1f5f9; }
-.content { padding: 32px; flex: 1; }
+.content { padding: 32px; flex: 1; max-width: 960px; }
 .section-heading { font-size: 13px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 16px; }
-.card { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 24px; margin-bottom: 24px; }
-.info-box { background: rgba(56,189,248,0.07); border: 1px solid rgba(56,189,248,0.2); border-radius: 6px; padding: 14px 18px; margin-bottom: 24px; font-size: 13px; color: #94a3b8; line-height: 1.7; }
-.info-box strong { color: #38bdf8; }
+.card { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 24px; margin-bottom: 20px; }
+
+/* Options checkboxes */
+.options-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 4px; }
+.opt-card { background: #0f172a; border: 2px solid #334155; border-radius: 8px; padding: 16px 18px; cursor: pointer; transition: all 0.15s; display: flex; align-items: flex-start; gap: 12px; }
+.opt-card:hover { border-color: #38bdf8; }
+.opt-card.selected { border-color: #0ea5e9; background: rgba(14,165,233,0.06); }
+.opt-card input[type="checkbox"] { accent-color: #0ea5e9; width: 18px; height: 18px; margin-top: 2px; flex-shrink: 0; cursor: pointer; }
+.opt-icon { font-size: 22px; flex-shrink: 0; }
+.opt-title { font-size: 14px; font-weight: 700; color: #f1f5f9; margin-bottom: 3px; }
+.opt-desc { font-size: 11px; color: #64748b; line-height: 1.4; }
 
 /* Upload zone */
-.upload-zone { border: 2px dashed #334155; border-radius: 8px; padding: 40px 20px; text-align: center; cursor: pointer; transition: all 0.2s; position: relative; }
+.upload-zone { border: 2px dashed #334155; border-radius: 8px; padding: 36px 20px; text-align: center; cursor: pointer; transition: all 0.2s; position: relative; }
 .upload-zone:hover, .upload-zone.over { border-color: #38bdf8; background: rgba(56,189,248,0.04); }
 .upload-zone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
-.upload-icon { font-size: 40px; margin-bottom: 10px; }
-.upload-title { font-size: 15px; font-weight: 600; color: #e2e8f0; margin-bottom: 6px; }
+.upload-icon { font-size: 36px; margin-bottom: 8px; }
+.upload-title { font-size: 15px; font-weight: 600; color: #e2e8f0; margin-bottom: 4px; }
 .upload-sub { font-size: 12px; color: #64748b; }
 
 /* Progress */
-.progress-wrap { display: none; margin-top: 20px; }
+.progress-wrap { display: none; margin-top: 16px; }
 .progress-bar-bg { background: #0f172a; border-radius: 4px; height: 8px; overflow: hidden; }
 .progress-bar-fill { height: 100%; background: #0ea5e9; width: 0%; transition: width 0.3s; border-radius: 4px; }
 .progress-label { font-size: 12px; color: #64748b; margin-top: 6px; text-align: center; }
@@ -56,20 +64,20 @@ nav { flex: 1; padding: 12px 0; overflow-y: auto; }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-green { background: #16a34a; color: #fff; }
 .btn-green:hover { background: #15803d; }
-.btn-row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 20px; }
+.btn-gray { background: #334155; color: #94a3b8; }
+.btn-gray:hover { background: #475569; color: #e2e8f0; }
+.btn-row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
 
 /* Results grid */
-.results-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px; margin-top: 24px; }
-.photo-card { background: #0f172a; border: 1px solid #334155; border-radius: 8px; overflow: hidden; position: relative; }
-.photo-card img { width: 100%; display: block; aspect-ratio: 413/531; object-fit: cover; }
+.results-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px; margin-top: 20px; }
+.photo-card { background: #0f172a; border: 1px solid #334155; border-radius: 8px; overflow: hidden; }
+.photo-card img { width: 100%; display: block; object-fit: cover; }
 .photo-card .photo-info { padding: 8px 10px; }
 .photo-card .photo-name { font-size: 11px; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.photo-card .photo-meta { font-size: 10px; color: #475569; margin-top: 2px; display: flex; gap: 6px; align-items: center; }
-.badge-face { color: #4ade80; font-size: 10px; }
-.badge-noface { color: #fbbf24; font-size: 10px; }
-.photo-card .dl-btn { width: 100%; padding: 6px; background: #1e293b; border: none; border-top: 1px solid #334155; color: #38bdf8; font-size: 11px; font-weight: 600; cursor: pointer; font-family: inherit; transition: background 0.15s; }
+.photo-card .photo-meta { font-size: 10px; color: #475569; margin-top: 3px; line-height: 1.5; }
+.photo-card .dl-btn { width: 100%; padding: 7px; background: #1e293b; border: none; border-top: 1px solid #334155; color: #38bdf8; font-size: 11px; font-weight: 600; cursor: pointer; font-family: inherit; transition: background 0.15s; }
 .photo-card .dl-btn:hover { background: #334155; }
-.photo-card .error-overlay { padding: 12px 10px; background: rgba(239,68,68,0.1); border-top: 1px solid rgba(239,68,68,0.3); font-size: 11px; color: #f87171; }
+.error-label { font-size: 10px; color: #f87171; margin-top: 3px; }
 
 /* Toast */
 .toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: 6px; font-size: 13px; font-weight: 500; z-index: 999; opacity: 0; transform: translateY(8px); transition: all 0.25s; pointer-events: none; }
@@ -79,6 +87,7 @@ nav { flex: 1; padding: 12px 0; overflow-y: auto; }
 </style>
 </head>
 <body>
+
 <aside class="sidebar">
   <div class="sidebar-logo">
     <div class="logo-text">DEN</div>
@@ -108,84 +117,75 @@ nav { flex: 1; padding: 12px 0; overflow-y: auto; }
 <div class="main">
   <div class="topbar">
     <div class="page-title">📷 Photo Tools</div>
-    <div style="font-size:12px;color:#64748b;" id="topbar-meta">Passport: 413×531px · 300DPI · 10–18KB</div>
+    <div id="topbar-status" style="font-size:12px;color:#64748b;">Select options below</div>
   </div>
+
   <div class="content">
 
-    <!-- Mode tabs -->
-    <div style="display:flex;border:1px solid #334155;border-radius:8px;overflow:hidden;width:fit-content;margin-bottom:24px;">
-      <button id="tab-passport" onclick="setTab('passport')"
-        style="padding:10px 28px;background:#0ea5e9;color:#fff;border:none;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:all 0.15s;">
-        📷 Passport Photo
-      </button>
-      <button id="tab-compress" onclick="setTab('compress')"
-        style="padding:10px 28px;background:transparent;color:#94a3b8;border:none;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:all 0.15s;">
-        🗜 Compress Image
-      </button>
-    </div>
+    <!-- Step 1: Options -->
+    <div class="card">
+      <div class="section-heading">Step 1 — Select what to do with your photos</div>
+      <div class="options-grid">
 
-    <!-- ======================== PASSPORT TAB ======================== -->
-    <div id="pane-passport">
-      <div class="info-box">
-        <strong>Passport Photo:</strong> Upload photos → face detected → background removed → cropped to <strong>35×45 mm @ 300 DPI (413×531 px)</strong> → compressed to <strong>10–18 KB</strong>.<br>
-        Supported: JPG, PNG, BMP, WEBP, TIFF · max 25 MB each · up to 100 images
+        <label class="opt-card" id="opt-compress" onclick="toggleOpt(this)">
+          <input type="checkbox" id="chk-compress" onchange="updateStatus()">
+          <span class="opt-icon">🗜</span>
+          <div>
+            <div class="opt-title">Compress File Size</div>
+            <div class="opt-desc">Reduce image to 10–25 KB. Original dimensions preserved.</div>
+          </div>
+        </label>
+
+        <label class="opt-card" id="opt-passport" onclick="toggleOpt(this)">
+          <input type="checkbox" id="chk-passport" onchange="updateStatus()">
+          <span class="opt-icon">🪪</span>
+          <div>
+            <div class="opt-title">Convert to Passport Size</div>
+            <div class="opt-desc">Resize to 413×531 px (35×45 mm @ 300 DPI). Face auto-cropped.</div>
+          </div>
+        </label>
+
+        <label class="opt-card" id="opt-rmbg" onclick="toggleOpt(this)">
+          <input type="checkbox" id="chk-rmbg" onchange="updateStatus()">
+          <span class="opt-icon">🎨</span>
+          <div>
+            <div class="opt-title">Remove Background</div>
+            <div class="opt-desc">AI removes background, replaces with clean white.</div>
+          </div>
+        </label>
+
       </div>
-
-      <div class="card">
-        <div class="section-heading">Upload Photos</div>
-        <div class="upload-zone" id="upload-zone">
-          <input type="file" id="file-input" accept=".jpg,.jpeg,.png,.bmp,.webp,.tiff,.tif,.heic,.heif,image/*" multiple>
-          <div class="upload-icon">📁</div>
-          <div class="upload-title">Drop photos here or click to browse</div>
-          <div class="upload-sub" id="upload-sub">Up to 100 images · max 25 MB each</div>
-        </div>
-        <div class="progress-wrap" id="progress-wrap">
-          <div class="progress-bar-bg"><div class="progress-bar-fill" id="progress-fill"></div></div>
-          <div class="progress-label" id="progress-label">Processing 0 of 0…</div>
-        </div>
-        <div class="btn-row" id="btn-row" style="display:none;">
-          <button class="btn btn-primary" id="process-btn" onclick="processAll()">⚙ Process All Photos</button>
-          <button class="btn btn-green" id="download-all-btn" style="display:none;" onclick="downloadAll()">⬇ Download All as ZIP</button>
-          <button class="btn" style="background:#334155;color:#94a3b8;" onclick="clearAll()">✕ Clear</button>
-        </div>
-      </div>
-
-      <div id="results-section" style="display:none;">
-        <div class="section-heading" id="results-heading">Results</div>
-        <div class="results-grid" id="results-grid"></div>
+      <div style="font-size:12px;color:#475569;margin-top:12px;" id="opt-hint">
+        ✅ Tip: Check all three to get a fully processed passport photo with white background, compressed to 10–25 KB.
       </div>
     </div>
 
-    <!-- ======================== COMPRESS TAB ======================== -->
-    <div id="pane-compress" style="display:none;">
-      <div class="info-box">
-        <strong>Image Compressor:</strong> Upload any image → reduces file size to <strong>10–25 KB</strong> without converting to passport size. Original proportions preserved.<br>
-        Supported: JPG, PNG, BMP, WEBP, TIFF · max 25 MB each · up to 100 images
+    <!-- Step 2: Upload -->
+    <div class="card">
+      <div class="section-heading">Step 2 — Upload Photos</div>
+      <div class="upload-zone" id="upload-zone">
+        <input type="file" id="file-input" accept=".jpg,.jpeg,.png,.bmp,.webp,.tiff,.tif,.heic,.heif,image/*" multiple>
+        <div class="upload-icon">📁</div>
+        <div class="upload-title">Drop photos here or click to browse</div>
+        <div class="upload-sub" id="upload-sub">Up to 100 images · JPG, PNG, BMP, WEBP, TIFF · max 25 MB each</div>
       </div>
 
-      <div class="card">
-        <div class="section-heading">Upload Images</div>
-        <div class="upload-zone" id="c-upload-zone">
-          <input type="file" id="c-file-input" accept=".jpg,.jpeg,.png,.bmp,.webp,.tiff,.tif,image/*" multiple>
-          <div class="upload-icon">🗜</div>
-          <div class="upload-title">Drop images here or click to browse</div>
-          <div class="upload-sub" id="c-upload-sub">Up to 100 images · max 25 MB each</div>
-        </div>
-        <div class="progress-wrap" id="c-progress-wrap">
-          <div class="progress-bar-bg"><div class="progress-bar-fill" id="c-progress-fill"></div></div>
-          <div class="progress-label" id="c-progress-label">Compressing 0 of 0…</div>
-        </div>
-        <div class="btn-row" id="c-btn-row" style="display:none;">
-          <button class="btn btn-primary" id="c-process-btn" onclick="compressAll()">⚙ Compress All</button>
-          <button class="btn btn-green" id="c-download-btn" style="display:none;" onclick="compressDownloadZip()">⬇ Download All as ZIP</button>
-          <button class="btn" style="background:#334155;color:#94a3b8;" onclick="clearCompress()">✕ Clear</button>
-        </div>
+      <div class="progress-wrap" id="progress-wrap">
+        <div class="progress-bar-bg"><div class="progress-bar-fill" id="progress-fill"></div></div>
+        <div class="progress-label" id="progress-label">Processing…</div>
       </div>
 
-      <div id="c-results-section" style="display:none;">
-        <div class="section-heading" id="c-results-heading">Compressed Results</div>
-        <div class="results-grid" id="c-results-grid"></div>
+      <div class="btn-row" id="btn-row" style="display:none;">
+        <button class="btn btn-primary" id="process-btn" onclick="processAll()">⚙ Process Photos</button>
+        <button class="btn btn-green" id="dl-zip-btn" style="display:none;" onclick="downloadZip()">⬇ Download All as ZIP</button>
+        <button class="btn btn-gray" onclick="clearAll()">✕ Clear</button>
       </div>
+    </div>
+
+    <!-- Step 3: Results -->
+    <div id="results-section" style="display:none;">
+      <div class="section-heading" id="results-heading">Results</div>
+      <div class="results-grid" id="results-grid"></div>
     </div>
 
   </div>
@@ -195,52 +195,73 @@ nav { flex: 1; padding: 12px 0; overflow-y: auto; }
 
 <script>
 let selectedFiles = [];
-let processedResults = [];  // {filename, b64, face_found, size_kb} or {filename, error}
+let processedResults = [];
 
+// ── Option card toggle ──────────────────────────────────────────
+function toggleOpt(label) {
+  // The click already toggles the checkbox (it's inside the label)
+  // just update visual state after a tick
+  setTimeout(() => {
+    const chk = label.querySelector('input[type=checkbox]');
+    label.classList.toggle('selected', chk.checked);
+    updateStatus();
+  }, 0);
+}
+
+function updateStatus() {
+  const compress  = document.getElementById('chk-compress').checked;
+  const passport  = document.getElementById('chk-passport').checked;
+  const rmbg      = document.getElementById('chk-rmbg').checked;
+  const parts = [];
+  if (compress) parts.push('Compress to 10–25 KB');
+  if (passport) parts.push('Passport size 413×531px');
+  if (rmbg)     parts.push('Remove background');
+  document.getElementById('topbar-status').textContent =
+    parts.length ? parts.join(' · ') : 'Select options above';
+}
+
+// ── File handling ───────────────────────────────────────────────
 const zone = document.getElementById('upload-zone');
 zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('over'); });
 zone.addEventListener('dragleave', () => zone.classList.remove('over'));
-zone.addEventListener('drop', e => {
-  e.preventDefault(); zone.classList.remove('over');
-  handleFiles(Array.from(e.dataTransfer.files));
-});
-document.getElementById('file-input').addEventListener('change', e => {
-  handleFiles(Array.from(e.target.files));
-});
+zone.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('over'); handleFiles(Array.from(e.dataTransfer.files)); });
+document.getElementById('file-input').addEventListener('change', e => handleFiles(Array.from(e.target.files)));
 
 function handleFiles(files) {
   const valid = files.filter(f => /\.(jpe?g|png|bmp|webp|tiff?|heic|heif)$/i.test(f.name) || !f.name.includes('.'));
-  if (valid.length === 0) { toast('No supported image files found.', 'error'); return; }
+  if (!valid.length) { toast('No supported image files found.', 'error'); return; }
   if (valid.length > 100) { toast('Maximum 100 images at a time.', 'error'); return; }
+
   selectedFiles = valid;
+  processedResults = [];
   document.getElementById('upload-sub').textContent = `${valid.length} file(s) selected — ready to process`;
   document.getElementById('btn-row').style.display = '';
-  document.getElementById('download-all-btn').style.display = 'none';
-  processedResults = [];
+  document.getElementById('dl-zip-btn').style.display = 'none';
 
-  // Show immediate local previews
+  // Show previews
   const grid = document.getElementById('results-grid');
   grid.innerHTML = '';
   document.getElementById('results-section').style.display = '';
-  document.getElementById('results-heading').textContent = `Selected (${valid.length}) — click "Process All Photos" to start`;
+  document.getElementById('results-heading').textContent = `Selected (${valid.length}) — click Process Photos`;
 
   valid.forEach((file, i) => {
+    const isPassport = document.getElementById('chk-passport').checked;
     grid.insertAdjacentHTML('beforeend',
       `<div class="photo-card" id="card-${i}">
-         <div style="aspect-ratio:413/531;background:#0f172a;overflow:hidden;display:flex;align-items:center;justify-content:center;">
+         <div style="background:#0f172a;overflow:hidden;display:flex;align-items:center;justify-content:center;${isPassport ? 'aspect-ratio:413/531' : 'aspect-ratio:4/3'}">
            <img id="thumb-${i}" style="width:100%;height:100%;object-fit:cover;display:none;">
-           <span id="spinner-${i}" style="color:#475569;font-size:11px;">Loading preview…</span>
+           <span id="sp-${i}" style="color:#475569;font-size:11px;">Loading…</span>
          </div>
          <div class="photo-info">
            <div class="photo-name">${esc(file.name)}</div>
-           <div class="photo-meta"><span style="color:#475569;font-size:10px;">Pending</span></div>
+           <div class="photo-meta" id="meta-${i}">Pending · ${(file.size/1024).toFixed(0)} KB</div>
          </div>
        </div>`
     );
     const reader = new FileReader();
     reader.onload = e => {
       const t = document.getElementById('thumb-' + i);
-      const s = document.getElementById('spinner-' + i);
+      const s = document.getElementById('sp-' + i);
       if (t) { t.src = e.target.result; t.style.display = 'block'; }
       if (s) s.style.display = 'none';
     };
@@ -248,168 +269,141 @@ function handleFiles(files) {
   });
 }
 
+// ── Process ─────────────────────────────────────────────────────
 async function processAll() {
+  const doCompress = document.getElementById('chk-compress').checked;
+  const doPassport = document.getElementById('chk-passport').checked;
+  const doRmbg     = document.getElementById('chk-rmbg').checked;
+
+  if (!doCompress && !doPassport && !doRmbg) {
+    toast('Please select at least one option above.', 'error'); return;
+  }
   if (!selectedFiles.length) { toast('No files selected.', 'error'); return; }
 
   const btn = document.getElementById('process-btn');
   btn.disabled = true; btn.textContent = 'Processing…';
-
-  const wrap = document.getElementById('progress-wrap');
-  const fill = document.getElementById('progress-fill');
+  const fill  = document.getElementById('progress-fill');
   const label = document.getElementById('progress-label');
-  wrap.style.display = '';
+  document.getElementById('progress-wrap').style.display = '';
   processedResults = [];
 
-  document.getElementById('results-section').style.display = '';
+  // Determine which server endpoint to use
+  // If passport or rmbg → /api/photos/process (full pipeline)
+  // If only compress     → /api/photos/compress
+  const usePassportEndpoint = doPassport || doRmbg;
+  const endpoint = usePassportEndpoint ? '/api/photos/process' : '/api/photos/compress';
 
   for (let i = 0; i < selectedFiles.length; i++) {
     const file = selectedFiles[i];
-    label.textContent = `Processing ${i + 1} of ${selectedFiles.length}: ${file.name}`;
+    label.textContent = `Processing ${i+1} of ${selectedFiles.length}: ${file.name}`;
     fill.style.width = ((i / selectedFiles.length) * 100) + '%';
 
-    // Mark card as processing
-    const card = document.getElementById('card-' + i);
-    if (card) {
-      const meta = card.querySelector('.photo-meta');
-      if (meta) meta.innerHTML = '<span style="color:#38bdf8;font-size:10px;">⏳ Processing…</span>';
-    }
+    const meta = document.getElementById('meta-' + i);
+    if (meta) meta.textContent = '⏳ Processing…';
 
     try {
-      const fd = new FormData();
-      fd.append('file', file);
-      const r = await fetch('/api/photos/process', { method: 'POST', body: fd });
+      const fd = new FormData(); fd.append('file', file);
+      const r  = await fetch(endpoint, { method: 'POST', body: fd });
+      const ct = r.headers.get('content-type') || '';
 
-      // Handle non-JSON responses (502, 500 HTML pages)
-      const contentType = r.headers.get('content-type') || '';
-      if (!contentType.includes('application/json')) {
-        const errCard = document.getElementById('card-' + i);
-        if (errCard) errCard.innerHTML = `
-          <div style="aspect-ratio:413/531;background:#1e293b;display:flex;align-items:center;justify-content:center;padding:12px;">
-            <span style="color:#f87171;font-size:11px;text-align:center;">❌ Server error ${r.status}</span>
-          </div>
-          <div class="photo-info"><div class="photo-name">${esc(file.name)}</div></div>
-          <div class="error-overlay">HTTP ${r.status} — server error</div>`;
-        processedResults.push({ filename: file.name, error: 'HTTP ' + r.status });
-        continue;
+      if (!ct.includes('application/json')) {
+        if (meta) meta.innerHTML = `<span class="error-label">❌ Server error ${r.status}</span>`;
+        processedResults.push({ error: true }); continue;
       }
 
       const data = await r.json();
-      const resultCard = document.getElementById('card-' + i);
 
       if (data.ok) {
-        processedResults.push({ filename: file.name, b64: data.image_b64, face_found: data.face_found, size_kb: data.size_kb });
-        if (resultCard) resultCard.innerHTML = `
-          <img src="data:image/jpeg;base64,${data.image_b64}" alt="${esc(file.name)}">
+        let finalB64 = data.image_b64;
+        let sizeKb   = data.size_kb;
+
+        // If compress-only but result is still >25KB, note it
+        const tags = [];
+        if (doPassport) tags.push('413×531px');
+        if (doRmbg)     tags.push(data.face_found !== undefined ? (data.face_found ? '✔ Face' : '⚠ No face') : 'BG removed');
+        if (doCompress || usePassportEndpoint) tags.push(`${sizeKb} KB`);
+
+        processedResults.push({ filename: file.name, b64: finalB64, size_kb: sizeKb });
+        const idx = processedResults.length - 1;
+        const card = document.getElementById('card-' + i);
+        const ar = doPassport ? 'aspect-ratio:413/531' : 'aspect-ratio:4/3';
+        if (card) card.innerHTML = `
+          <div style="background:#0f172a;overflow:hidden;${ar}">
+            <img src="data:image/jpeg;base64,${finalB64}" style="width:100%;height:100%;object-fit:cover;">
+          </div>
           <div class="photo-info">
             <div class="photo-name">${esc(file.name)}</div>
-            <div class="photo-meta">
-              <span class="${data.face_found ? 'badge-face' : 'badge-noface'}">${data.face_found ? '✔ Face' : '⚠ No face'}</span>
-              <span>${data.size_kb} KB</span>
-            </div>
+            <div class="photo-meta">${tags.join(' · ')}</div>
           </div>
-          <button class="dl-btn" onclick="downloadOne(${processedResults.length - 1})">⬇ Download</button>`;
+          <button class="dl-btn" onclick="dlOne(${idx})">⬇ Download</button>`;
       } else {
-        processedResults.push({ filename: file.name, error: data.error });
-        if (resultCard) resultCard.innerHTML = `
-          <div style="aspect-ratio:413/531;background:#1e293b;display:flex;align-items:center;justify-content:center;padding:12px;">
-            <span style="color:#f87171;font-size:12px;text-align:center;">❌ Failed</span>
-          </div>
-          <div class="photo-info"><div class="photo-name">${esc(file.name)}</div></div>
-          <div class="error-overlay">${esc(data.error || 'Processing failed')}</div>`;
+        if (meta) meta.innerHTML = `<span class="error-label">❌ ${esc(data.error || 'Failed')}</span>`;
+        processedResults.push({ error: true });
       }
     } catch(ex) {
-      console.error('processAll error:', ex);
-      const errCard = document.getElementById('card-' + i);
-      if (errCard) errCard.innerHTML = `
-        <div style="aspect-ratio:413/531;background:#1e293b;display:flex;align-items:center;justify-content:center;padding:12px;">
-          <span style="color:#f87171;font-size:12px;text-align:center;">❌ Network error</span>
-        </div>
-        <div class="photo-info"><div class="photo-name">${esc(file.name)}</div></div>
-        <div class="error-overlay">Network error — check connection</div>`;
-      processedResults.push({ filename: file.name, error: 'Network error' });
+      console.error(ex);
+      const meta2 = document.getElementById('meta-' + i);
+      if (meta2) meta2.innerHTML = '<span class="error-label">❌ Network error</span>';
+      processedResults.push({ error: true });
     }
   }
 
   fill.style.width = '100%';
   const ok = processedResults.filter(r => !r.error).length;
   label.textContent = `Done — ${ok} of ${selectedFiles.length} processed successfully.`;
-  btn.disabled = false; btn.textContent = '⚙ Process All Photos';
+  btn.disabled = false; btn.textContent = '⚙ Process Photos';
   document.getElementById('results-heading').textContent = `Results — ${ok} / ${selectedFiles.length} processed`;
-
-  if (ok > 1) document.getElementById('download-all-btn').style.display = '';
+  if (ok > 0) document.getElementById('dl-zip-btn').style.display = '';
 }
 
-function downloadOne(idx) {
+// ── Download ─────────────────────────────────────────────────────
+function dlOne(idx) {
   const r = processedResults[idx];
   if (!r || r.error) return;
   const a = document.createElement('a');
+  const stem = (r.filename || 'photo').replace(/\.[^.]+$/, '');
+  const doPassport = document.getElementById('chk-passport').checked;
   a.href = 'data:image/jpeg;base64,' + r.b64;
-  const stem = r.filename.replace(/\.[^.]+$/, '');
-  a.download = 'passport_' + stem + '.jpg';
+  a.download = (doPassport ? 'passport_' : 'photo_') + stem + '.jpg';
   a.click();
 }
 
-async function downloadAll() {
-  const btn = document.getElementById('download-all-btn');
+async function downloadZip() {
+  const btn = document.getElementById('dl-zip-btn');
   btn.disabled = true; btn.textContent = '⏳ Building ZIP…';
-
   try {
-    // Build ZIP client-side from already-processed base64 images
     const entries = processedResults.filter(r => !r.error && r.b64);
-    if (!entries.length) { toast('No processed images to download.', 'error'); return; }
-
-    // Use JSZip if available, otherwise fall back to server batch
-    if (typeof JSZip !== 'undefined') {
-      const zip = new JSZip();
-      entries.forEach((r, i) => {
-        const stem = (r.filename || 'photo').replace(/\.[^.]+$/, '');
-        zip.file(`passport_${String(i+1).padStart(3,'0')}_${stem}.jpg`,
-          r.b64, { base64: true });
-      });
-      const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url; a.download = 'passport_photos.zip'; a.click();
-      URL.revokeObjectURL(url);
-      toast('ZIP downloaded!', 'success');
-    } else {
-      // Fallback: download each file individually
-      entries.forEach((r, i) => {
-        setTimeout(() => {
-          const stem = (r.filename || 'photo').replace(/\.[^.]+$/, '');
-          const a = document.createElement('a');
-          a.href = 'data:image/jpeg;base64,' + r.b64;
-          a.download = `passport_${String(i+1).padStart(3,'0')}_${stem}.jpg`;
-          a.click();
-        }, i * 200);
-      });
-      toast(`Downloading ${entries.length} files individually…`, 'success');
-    }
-  } catch(ex) {
-    console.error('ZIP error:', ex);
-    toast('ZIP failed — downloading individually.', 'error');
-    // Fallback to individual downloads
-    processedResults.filter(r => !r.error && r.b64).forEach((r, i) => {
-      setTimeout(() => {
-        const stem = (r.filename || 'photo').replace(/\.[^.]+$/, '');
-        const a = document.createElement('a');
-        a.href = 'data:image/jpeg;base64,' + r.b64;
-        a.download = `passport_${String(i+1).padStart(3,'0')}_${stem}.jpg`;
-        a.click();
-      }, i * 300);
+    if (!entries.length) { toast('Nothing to download.', 'error'); return; }
+    const doPassport = document.getElementById('chk-passport').checked;
+    const prefix = doPassport ? 'passport' : 'photo';
+    const zip = new JSZip();
+    entries.forEach((r, i) => {
+      const stem = (r.filename || 'image').replace(/\.[^.]+$/, '');
+      zip.file(`${prefix}_${String(i+1).padStart(3,'0')}_${stem}.jpg`, r.b64, { base64: true });
     });
+    const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = prefix + '_photos.zip'; a.click();
+    URL.revokeObjectURL(url);
+    toast('ZIP downloaded!', 'success');
+  } catch(ex) {
+    console.error(ex);
+    toast('ZIP failed — try individual downloads.', 'error');
   } finally {
     btn.disabled = false; btn.textContent = '⬇ Download All as ZIP';
   }
 }
 
+// ── Helpers ──────────────────────────────────────────────────────
 function clearAll() {
   selectedFiles = []; processedResults = [];
   document.getElementById('file-input').value = '';
-  document.getElementById('upload-sub').textContent = 'Up to 100 images · JPG, PNG, BMP, WEBP, TIFF, HEIC · max 25 MB each';
+  document.getElementById('upload-sub').textContent = 'Up to 100 images · JPG, PNG, BMP, WEBP, TIFF · max 25 MB each';
   document.getElementById('btn-row').style.display = 'none';
   document.getElementById('progress-wrap').style.display = 'none';
   document.getElementById('results-section').style.display = 'none';
-  document.getElementById('download-all-btn').style.display = 'none';
+  document.getElementById('dl-zip-btn').style.display = 'none';
   document.getElementById('results-grid').innerHTML = '';
 }
 
@@ -420,184 +414,6 @@ function toast(msg, type) {
 }
 
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
-// ---------------------------------------------------------------------------
-// Tab switching
-// ---------------------------------------------------------------------------
-function setTab(tab) {
-  const isPassport = tab === 'passport';
-  document.getElementById('pane-passport').style.display = isPassport ? '' : 'none';
-  document.getElementById('pane-compress').style.display  = isPassport ? 'none' : '';
-  document.getElementById('tab-passport').style.background = isPassport ? '#0ea5e9' : 'transparent';
-  document.getElementById('tab-passport').style.color      = isPassport ? '#fff' : '#94a3b8';
-  document.getElementById('tab-compress').style.background = isPassport ? 'transparent' : '#0ea5e9';
-  document.getElementById('tab-compress').style.color      = isPassport ? '#94a3b8' : '#fff';
-  document.getElementById('topbar-meta').textContent = isPassport
-    ? 'Passport: 413×531px · 300DPI · 10–18KB'
-    : 'Compress: 10–25 KB · original size preserved';
-}
-
-// ---------------------------------------------------------------------------
-// Compress tab
-// ---------------------------------------------------------------------------
-let cFiles = [], cResults = [];
-
-const cZone = document.getElementById('c-upload-zone');
-cZone.addEventListener('dragover', e => { e.preventDefault(); cZone.classList.add('over'); });
-cZone.addEventListener('dragleave', () => cZone.classList.remove('over'));
-cZone.addEventListener('drop', e => { e.preventDefault(); cZone.classList.remove('over'); handleCFiles(Array.from(e.dataTransfer.files)); });
-document.getElementById('c-file-input').addEventListener('change', e => handleCFiles(Array.from(e.target.files)));
-
-function handleCFiles(files) {
-  const valid = files.filter(f => /\.(jpe?g|png|bmp|webp|tiff?)$/i.test(f.name) || !f.name.includes('.'));
-  if (!valid.length) { toast('No supported image files.', 'error'); return; }
-  if (valid.length > 100) { toast('Maximum 100 images.', 'error'); return; }
-  cFiles = valid; cResults = [];
-  document.getElementById('c-upload-sub').textContent = `${valid.length} file(s) selected — click Compress All`;
-  document.getElementById('c-btn-row').style.display = '';
-  document.getElementById('c-download-btn').style.display = 'none';
-
-  // Preview
-  const grid = document.getElementById('c-results-grid');
-  grid.innerHTML = '';
-  document.getElementById('c-results-section').style.display = '';
-  document.getElementById('c-results-heading').textContent = `Selected (${valid.length}) — ready to compress`;
-  valid.forEach((file, i) => {
-    grid.insertAdjacentHTML('beforeend',
-      `<div class="photo-card" id="cc-${i}">
-         <div style="aspect-ratio:4/3;background:#0f172a;overflow:hidden;display:flex;align-items:center;justify-content:center;">
-           <img id="cthumb-${i}" style="width:100%;height:100%;object-fit:cover;display:none;">
-           <span id="cspinner-${i}" style="color:#475569;font-size:11px;">Loading…</span>
-         </div>
-         <div class="photo-info">
-           <div class="photo-name">${esc(file.name)}</div>
-           <div class="photo-meta"><span style="color:#475569;font-size:10px;">${(file.size/1024).toFixed(0)} KB original</span></div>
-         </div>
-       </div>`
-    );
-    const reader = new FileReader();
-    reader.onload = e => {
-      const t = document.getElementById('cthumb-' + i);
-      const s = document.getElementById('cspinner-' + i);
-      if (t) { t.src = e.target.result; t.style.display = 'block'; }
-      if (s) s.style.display = 'none';
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
-async function compressAll() {
-  if (!cFiles.length) { toast('No files selected.', 'error'); return; }
-  const btn = document.getElementById('c-process-btn');
-  btn.disabled = true; btn.textContent = 'Compressing…';
-  const fill  = document.getElementById('c-progress-fill');
-  const label = document.getElementById('c-progress-label');
-  document.getElementById('c-progress-wrap').style.display = '';
-  cResults = [];
-
-  for (let i = 0; i < cFiles.length; i++) {
-    const file = cFiles[i];
-    label.textContent = `Compressing ${i+1} of ${cFiles.length}: ${file.name}`;
-    fill.style.width = ((i / cFiles.length) * 100) + '%';
-
-    const card = document.getElementById('cc-' + i);
-    if (card) { const m = card.querySelector('.photo-meta'); if (m) m.innerHTML = '<span style="color:#38bdf8;font-size:10px;">⏳ Compressing…</span>'; }
-
-    try {
-      const fd = new FormData(); fd.append('file', file);
-      const r = await fetch('/api/photos/compress', { method: 'POST', body: fd });
-      const ct = r.headers.get('content-type') || '';
-      if (!ct.includes('application/json')) {
-        if (card) card.querySelector('.photo-meta').innerHTML = `<span style="color:#f87171;font-size:10px;">❌ Error ${r.status}</span>`;
-        cResults.push({ error: true }); continue;
-      }
-      const data = await r.json();
-      if (data.ok) {
-        cResults.push({ filename: file.name, b64: data.image_b64, size_kb: data.size_kb });
-        const idx = cResults.length - 1;
-        if (card) card.innerHTML = `
-          <div style="aspect-ratio:4/3;background:#0f172a;overflow:hidden;">
-            <img src="data:image/jpeg;base64,${data.image_b64}" style="width:100%;height:100%;object-fit:cover;">
-          </div>
-          <div class="photo-info">
-            <div class="photo-name">${esc(file.name)}</div>
-            <div class="photo-meta"><span style="color:#4ade80;font-size:10px;">✔ ${data.size_kb} KB</span></div>
-          </div>
-          <button class="dl-btn" onclick="downloadCompressed(${idx})">⬇ Download</button>`;
-      } else {
-        if (card) card.querySelector('.photo-meta').innerHTML = `<span style="color:#f87171;font-size:10px;">❌ ${esc(data.error||'Failed')}</span>`;
-        cResults.push({ error: true });
-      }
-    } catch(ex) {
-      if (card) card.querySelector('.photo-meta').innerHTML = '<span style="color:#f87171;font-size:10px;">❌ Network error</span>';
-      cResults.push({ error: true });
-    }
-  }
-
-  fill.style.width = '100%';
-  const ok = cResults.filter(r => !r.error).length;
-  label.textContent = `Done — ${ok} of ${cFiles.length} compressed.`;
-  btn.disabled = false; btn.textContent = '⚙ Compress All';
-  document.getElementById('c-results-heading').textContent = `Results — ${ok} / ${cFiles.length} compressed`;
-  if (ok > 1) document.getElementById('c-download-btn').style.display = '';
-}
-
-function downloadCompressed(idx) {
-  const r = cResults[idx];
-  if (!r || r.error) return;
-  const a = document.createElement('a');
-  a.href = 'data:image/jpeg;base64,' + r.b64;
-  a.download = 'compressed_' + (r.filename || 'image') .replace(/\.[^.]+$/, '') + '.jpg';
-  a.click();
-}
-
-async function compressDownloadZip() {
-  const btn = document.getElementById('c-download-btn');
-  btn.disabled = true; btn.textContent = '⏳ Building ZIP…';
-  try {
-    const entries = cResults.filter(r => !r.error && r.b64);
-    if (!entries.length) { toast('No compressed images to download.', 'error'); return; }
-
-    if (typeof JSZip !== 'undefined') {
-      const zip = new JSZip();
-      entries.forEach((r, i) => {
-        const stem = (r.filename || 'image').replace(/\.[^.]+$/, '');
-        zip.file(`compressed_${String(i+1).padStart(3,'0')}_${stem}.jpg`, r.b64, { base64: true });
-      });
-      const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url; a.download = 'compressed_images.zip'; a.click();
-      URL.revokeObjectURL(url);
-      toast('ZIP downloaded!', 'success');
-    } else {
-      entries.forEach((r, i) => {
-        setTimeout(() => {
-          const stem = (r.filename || 'image').replace(/\.[^.]+$/, '');
-          const a = document.createElement('a');
-          a.href = 'data:image/jpeg;base64,' + r.b64;
-          a.download = `compressed_${String(i+1).padStart(3,'0')}_${stem}.jpg`;
-          a.click();
-        }, i * 200);
-      });
-      toast(`Downloading ${entries.length} files individually…`, 'success');
-    }
-  } catch(ex) {
-    toast('ZIP failed.', 'error');
-  } finally {
-    btn.disabled = false; btn.textContent = '⬇ Download All as ZIP';
-  }
-}
-
-function clearCompress() {
-  cFiles = []; cResults = [];
-  document.getElementById('c-file-input').value = '';
-  document.getElementById('c-upload-sub').textContent = 'Up to 100 images · max 25 MB each';
-  document.getElementById('c-btn-row').style.display = 'none';
-  document.getElementById('c-progress-wrap').style.display = 'none';
-  document.getElementById('c-results-section').style.display = 'none';
-  document.getElementById('c-download-btn').style.display = 'none';
-  document.getElementById('c-results-grid').innerHTML = '';
-}
 </script>
 </body>
 </html>
