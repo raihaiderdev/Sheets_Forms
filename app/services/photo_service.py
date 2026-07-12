@@ -18,11 +18,11 @@ import urllib.parse
 from PIL import Image, ImageOps
 
 
-PASSPORT_W = 413
-PASSPORT_H = 531
+PASSPORT_W = 600
+PASSPORT_H = 800
 TARGET_DPI = 300
 MIN_KB     = 10
-MAX_KB     = 18
+MAX_KB     = 25
 HEAD_RATIO = 0.68
 TOP_MARGIN = 0.13
 
@@ -234,6 +234,7 @@ def _crop_portrait(pil_img: Image.Image, face) -> Image.Image:
 # ---------------------------------------------------------------------------
 
 def _compress_to_range(pil_img: Image.Image) -> bytes:
+    """Compress to 10-25 KB JPEG @ 300 DPI. Never shrink below 600×800 px."""
     ow, oh = pil_img.size
 
     def enc(img, q):
@@ -242,28 +243,35 @@ def _compress_to_range(pil_img: Image.Image) -> bytes:
                  dpi=(TARGET_DPI, TARGET_DPI), optimize=True)
         return buf.getvalue()
 
+    # Phase 1: quality sweep at full resolution
     for q in range(10, 1, -1):
         data = enc(pil_img, q)
         if MIN_KB <= len(data)/1024 <= MAX_KB:
             return data
 
-    for scale in [0.85, 0.70, 0.58, 0.48, 0.40, 0.33, 0.27, 0.22, 0.18]:
-        nw, nh = max(int(ow*scale), 20), max(int(oh*scale), 26)
-        small  = pil_img.resize((nw, nh), Image.LANCZOS)
+    # Phase 2: shrink — never below 600×800
+    for scale in [0.85, 0.70, 0.58, 0.48]:
+        nw = max(int(ow * scale), PASSPORT_W)
+        nh = max(int(oh * scale), PASSPORT_H)
+        small = pil_img.resize((nw, nh), Image.LANCZOS)
         for q in range(85, 2, -5):
             data = enc(small, q)
             kb   = len(data) / 1024
             if MIN_KB <= kb <= MAX_KB:
                 return data
             if kb < MIN_KB:
-                prev = enc(small, min(q+5, 95))
+                prev = enc(small, min(q + 5, 95))
                 if len(prev)/1024 <= MAX_KB:
                     return prev
                 break
 
-    return enc(pil_img.resize(
-        (max(int(ow*0.18), 20), max(int(oh*0.18), 26)), Image.LANCZOS
-    ), 60)
+    # Phase 3: floor at exactly 600×800, find quality that fits ≤25 KB
+    floor = pil_img.resize((PASSPORT_W, PASSPORT_H), Image.LANCZOS)
+    for q in range(20, 1, -2):
+        data = enc(floor, q)
+        if len(data)/1024 <= MAX_KB:
+            return data
+    return enc(floor, 2)
 
 
 # ---------------------------------------------------------------------------

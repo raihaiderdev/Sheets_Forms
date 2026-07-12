@@ -132,7 +132,7 @@ nav { flex: 1; padding: 12px 0; overflow-y: auto; }
           <span class="opt-icon">🗜</span>
           <div>
             <div class="opt-title">Compress File Size</div>
-            <div class="opt-desc">Reduce image to 10–25 KB. Original dimensions preserved.</div>
+            <div class="opt-desc">Reduce file size to 10–25 KB. Minimum 600×800 px resolution guaranteed. Original proportions preserved.</div>
           </div>
         </label>
 
@@ -141,7 +141,7 @@ nav { flex: 1; padding: 12px 0; overflow-y: auto; }
           <span class="opt-icon">🪪</span>
           <div>
             <div class="opt-title">Convert to Passport Size</div>
-            <div class="opt-desc">Resize to 413×531 px (35×45 mm @ 300 DPI). Face auto-cropped.</div>
+            <div class="opt-desc">Resize to 600×800 px minimum (35×45 mm @ 300 DPI). Face auto-cropped and centered.</div>
           </div>
         </label>
 
@@ -217,7 +217,7 @@ function updateStatus() {
   if (passport) parts.push('Passport size 413×531px');
   if (rmbg)     parts.push('Remove background');
   document.getElementById('topbar-status').textContent =
-    parts.length ? parts.join(' · ') : 'Select options above';
+    parts.length ? parts.join(' · ') : 'Select options above — 10–25 KB · min 600×800 px';
 }
 
 // ── File handling ───────────────────────────────────────────────

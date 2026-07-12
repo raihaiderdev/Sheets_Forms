@@ -77,7 +77,7 @@ def api_process_photo():
 @photos_bp.route("/api/photos/compress", methods=["POST"])
 @login_required
 def api_compress_photo():
-    """Compress image to 10-25 KB without resizing or passport conversion."""
+    """Compress image to 10-25 KB. Ensures minimum 600×800 px resolution."""
     if "file" not in request.files:
         return jsonify({"ok": False, "error": "No file provided."}), 400
 
@@ -94,9 +94,17 @@ def api_compress_photo():
         import io as _io
 
         MIN_KB, MAX_KB = 10, 25
+        MIN_W, MIN_H   = 600, 800
 
         img = Image.open(_io.BytesIO(data))
         img = ImageOps.exif_transpose(img).convert("RGB")
+
+        # Upscale if below minimum resolution
+        orig_w, orig_h = img.size
+        if orig_w < MIN_W or orig_h < MIN_H:
+            scale = max(MIN_W / orig_w, MIN_H / orig_h)
+            img = img.resize((max(int(orig_w * scale), MIN_W),
+                              max(int(orig_h * scale), MIN_H)), Image.LANCZOS)
 
         def enc(im, q):
             buf = _io.BytesIO()
@@ -106,7 +114,7 @@ def api_compress_photo():
         orig_w, orig_h = img.size
         result = None
 
-        # Phase 1: quality sweep at full resolution
+        # Phase 1: quality sweep at full resolution (never go below MIN resolution)
         for q in range(10, 1, -1):
             d = enc(img, q)
             kb = len(d) / 1024
@@ -114,11 +122,11 @@ def api_compress_photo():
                 result = d
                 break
 
-        # Phase 2: shrink if still too large
+        # Phase 2: shrink if still too large — never go below 600×800
         if result is None:
-            for scale in [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.35, 0.3, 0.25, 0.20]:
-                nw = max(int(orig_w * scale), 30)
-                nh = max(int(orig_h * scale), 30)
+            for scale in [0.9, 0.8, 0.7, 0.6, 0.5]:
+                nw = max(int(orig_w * scale), MIN_W)
+                nh = max(int(orig_h * scale), MIN_H)
                 small = img.resize((nw, nh), Image.LANCZOS)
                 for q in range(90, 2, -5):
                     d = enc(small, q)
@@ -128,6 +136,18 @@ def api_compress_photo():
                         break
                 if result:
                     break
+
+        # Phase 3: if still can't fit, use minimum resolution at lowest quality
+        if result is None:
+            floor_img = img.resize((MIN_W, MIN_H), Image.LANCZOS)
+            for q in range(20, 1, -2):
+                d = enc(floor_img, q)
+                kb = len(d) / 1024
+                if kb <= MAX_KB:
+                    result = d
+                    break
+            if result is None:
+                result = enc(floor_img, 2)
 
         if result is None:
             result = enc(img.resize(
