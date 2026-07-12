@@ -60,15 +60,18 @@ def _detect_face(bgr: np.ndarray):
 # 3. Background removal
 # ---------------------------------------------------------------------------
 
-def _remove_background(pil_img: Image.Image) -> Image.Image:
+def _remove_background(pil_img: Image.Image, face=None) -> Image.Image:
     """
-    GrabCut on a downscaled copy → upscale mask → composite on white.
+    Improved background removal using face-seeded GrabCut.
+    - Marks face region as definite foreground
+    - Marks image corners as definite background
+    - Uses GrabCut on downscaled image for speed
     Falls back to plain white canvas if anything fails.
     """
     try:
         orig_w, orig_h = pil_img.size
 
-        # Downscale to ≤600 px for speed (avoids Railway timeout)
+        # Downscale to ≤600px for speed
         max_dim = 600
         scale   = min(1.0, max_dim / max(orig_w, orig_h))
         work_w  = max(int(orig_w * scale), 10)
@@ -78,25 +81,56 @@ def _remove_background(pil_img: Image.Image) -> Image.Image:
         bgr  = cv2.cvtColor(np.array(small, dtype=np.uint8), cv2.COLOR_RGB2BGR)
         h, w = bgr.shape[:2]
 
-        # GrabCut rect must be strictly inside image bounds
-        rx   = max(2, int(w * 0.04))
-        ry   = max(2, int(h * 0.04))
-        rect = (rx, ry, max(4, w - 2 * rx), max(4, h - 2 * ry))
+        # --- Build seeded mask ---
+        # Start with GrabCut probable background everywhere
+        mask = np.full((h, w), cv2.GC_PR_BGD, dtype=np.uint8)
 
-        mask = np.zeros((h, w), dtype=np.uint8)
-        bgd  = np.zeros((1, 65), dtype=np.float64)
-        fgd  = np.zeros((1, 65), dtype=np.float64)
-        cv2.grabCut(bgr, mask, rect, bgd, fgd, 5, cv2.GC_INIT_WITH_RECT)
+        # Mark corners (15% from each edge) as definite background
+        corner = int(min(w, h) * 0.12)
+        mask[:corner, :corner]   = cv2.GC_BGD  # TL
+        mask[:corner, -corner:]  = cv2.GC_BGD  # TR
+        mask[-corner:, :corner]  = cv2.GC_BGD  # BL
+        mask[-corner:, -corner:] = cv2.GC_BGD  # BR
+
+        # The vertical strip in the centre of the image is probable foreground
+        cx_start = int(w * 0.25)
+        cx_end   = int(w * 0.75)
+        cy_start = int(h * 0.10)
+        cy_end   = int(h * 0.90)
+        mask[cy_start:cy_end, cx_start:cx_end] = cv2.GC_PR_FGD
+
+        # If face was detected, mark face bounding box as definite foreground
+        if face is not None:
+            fx, fy, fw, fh = face
+            # Scale face coords to work size
+            sfx = max(0, int(fx * scale))
+            sfy = max(0, int(fy * scale))
+            sfw = max(1, int(fw * scale))
+            sfh = max(1, int(fh * scale))
+            efx = min(w, sfx + sfw)
+            efy = min(h, sfy + sfh)
+            mask[sfy:efy, sfx:efx] = cv2.GC_FGD
+            # Also mark a body region below face as probable foreground
+            body_top = min(h, efy)
+            body_bot = min(h, body_top + sfh * 3)
+            body_l   = max(0, sfx - sfh // 2)
+            body_r   = min(w, efx + sfh // 2)
+            mask[body_top:body_bot, body_l:body_r] = cv2.GC_PR_FGD
+
+        bgd = np.zeros((1, 65), dtype=np.float64)
+        fgd = np.zeros((1, 65), dtype=np.float64)
+
+        cv2.grabCut(bgr, mask, None, bgd, fgd, 5, cv2.GC_INIT_WITH_MASK)
 
         fg = np.where(
             (mask == cv2.GC_FGD) | (mask == cv2.GC_PR_FGD), 255, 0
         ).astype(np.uint8)
 
         # Morphological cleanup
-        k  = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+        k  = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
         fg = cv2.morphologyEx(fg, cv2.MORPH_CLOSE, k, iterations=3)
         fg = cv2.morphologyEx(fg, cv2.MORPH_OPEN,  k, iterations=1)
-        fg = cv2.GaussianBlur(fg, (5, 5), 0)
+        fg = cv2.GaussianBlur(fg, (7, 7), 0)
 
         # Upscale mask to original size
         if scale < 1.0:
@@ -207,8 +241,8 @@ def process_passport_photo(file_bytes: bytes) -> dict:
     face      = _detect_face(bgr)
     face_found = face is not None
 
-    # 3. Remove background → white
-    pil = _remove_background(pil)
+    # 3. Remove background → white (pass face coords for better seeding)
+    pil = _remove_background(pil, face=face)
 
     # 4. Crop around face
     if face_found:
