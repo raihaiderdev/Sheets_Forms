@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Passport Photo Tool — DEN</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: 'Inter', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; display: flex; }
@@ -350,22 +351,52 @@ function downloadOne(idx) {
 
 async function downloadAll() {
   const btn = document.getElementById('download-all-btn');
-  btn.disabled = true; btn.textContent = '⏳ Preparing ZIP…';
-
-  const fd = new FormData();
-  selectedFiles.forEach(f => fd.append('files', f));
+  btn.disabled = true; btn.textContent = '⏳ Building ZIP…';
 
   try {
-    const r = await fetch('/api/photos/batch', { method: 'POST', body: fd });
-    if (!r.ok) { toast('ZIP download failed.', 'error'); return; }
-    const blob = await r.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'passport_photos.zip'; a.click();
-    URL.revokeObjectURL(url);
-    toast('ZIP downloaded!', 'success');
+    // Build ZIP client-side from already-processed base64 images
+    const entries = processedResults.filter(r => !r.error && r.b64);
+    if (!entries.length) { toast('No processed images to download.', 'error'); return; }
+
+    // Use JSZip if available, otherwise fall back to server batch
+    if (typeof JSZip !== 'undefined') {
+      const zip = new JSZip();
+      entries.forEach((r, i) => {
+        const stem = (r.filename || 'photo').replace(/\.[^.]+$/, '');
+        zip.file(`passport_${String(i+1).padStart(3,'0')}_${stem}.jpg`,
+          r.b64, { base64: true });
+      });
+      const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = 'passport_photos.zip'; a.click();
+      URL.revokeObjectURL(url);
+      toast('ZIP downloaded!', 'success');
+    } else {
+      // Fallback: download each file individually
+      entries.forEach((r, i) => {
+        setTimeout(() => {
+          const stem = (r.filename || 'photo').replace(/\.[^.]+$/, '');
+          const a = document.createElement('a');
+          a.href = 'data:image/jpeg;base64,' + r.b64;
+          a.download = `passport_${String(i+1).padStart(3,'0')}_${stem}.jpg`;
+          a.click();
+        }, i * 200);
+      });
+      toast(`Downloading ${entries.length} files individually…`, 'success');
+    }
   } catch(ex) {
-    toast('Network error during ZIP download.', 'error');
+    console.error('ZIP error:', ex);
+    toast('ZIP failed — downloading individually.', 'error');
+    // Fallback to individual downloads
+    processedResults.filter(r => !r.error && r.b64).forEach((r, i) => {
+      setTimeout(() => {
+        const stem = (r.filename || 'photo').replace(/\.[^.]+$/, '');
+        const a = document.createElement('a');
+        a.href = 'data:image/jpeg;base64,' + r.b64;
+        a.download = `passport_${String(i+1).padStart(3,'0')}_${stem}.jpg`;
+        a.click();
+      }, i * 300);
+    });
   } finally {
     btn.disabled = false; btn.textContent = '⬇ Download All as ZIP';
   }
@@ -522,19 +553,39 @@ function downloadCompressed(idx) {
 
 async function compressDownloadZip() {
   const btn = document.getElementById('c-download-btn');
-  btn.disabled = true; btn.textContent = '⏳ Preparing ZIP…';
-  const fd = new FormData();
-  cFiles.forEach(f => fd.append('files', f));
+  btn.disabled = true; btn.textContent = '⏳ Building ZIP…';
   try {
-    const r = await fetch('/api/photos/compress-batch', { method: 'POST', body: fd });
-    if (!r.ok) { toast('ZIP failed.', 'error'); return; }
-    const blob = await r.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = 'compressed_images.zip'; a.click();
-    URL.revokeObjectURL(url);
-    toast('ZIP downloaded!', 'success');
-  } catch { toast('Network error.', 'error'); }
-  finally { btn.disabled = false; btn.textContent = '⬇ Download All as ZIP'; }
+    const entries = cResults.filter(r => !r.error && r.b64);
+    if (!entries.length) { toast('No compressed images to download.', 'error'); return; }
+
+    if (typeof JSZip !== 'undefined') {
+      const zip = new JSZip();
+      entries.forEach((r, i) => {
+        const stem = (r.filename || 'image').replace(/\.[^.]+$/, '');
+        zip.file(`compressed_${String(i+1).padStart(3,'0')}_${stem}.jpg`, r.b64, { base64: true });
+      });
+      const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = 'compressed_images.zip'; a.click();
+      URL.revokeObjectURL(url);
+      toast('ZIP downloaded!', 'success');
+    } else {
+      entries.forEach((r, i) => {
+        setTimeout(() => {
+          const stem = (r.filename || 'image').replace(/\.[^.]+$/, '');
+          const a = document.createElement('a');
+          a.href = 'data:image/jpeg;base64,' + r.b64;
+          a.download = `compressed_${String(i+1).padStart(3,'0')}_${stem}.jpg`;
+          a.click();
+        }, i * 200);
+      });
+      toast(`Downloading ${entries.length} files individually…`, 'success');
+    }
+  } catch(ex) {
+    toast('ZIP failed.', 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '⬇ Download All as ZIP';
+  }
 }
 
 function clearCompress() {
