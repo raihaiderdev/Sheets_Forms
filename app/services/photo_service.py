@@ -23,8 +23,8 @@ PASSPORT_H = 800
 TARGET_DPI = 300
 MIN_KB     = 10
 MAX_KB     = 25
-HEAD_RATIO = 0.68
-TOP_MARGIN = 0.13
+HEAD_RATIO = 0.55   # face bbox height / total crop height — matches standard passport framing
+TOP_MARGIN = 0.12   # space above face top (forehead to top edge) as fraction of crop height
 
 REMOVEBG_URL = "https://api.remove.bg/v1.0/removebg"
 
