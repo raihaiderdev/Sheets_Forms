@@ -50,7 +50,65 @@ def _detect_face(bgr: np.ndarray):
     return None
 
 
-def _crop_portrait(pil_img: Image.Image, face) -> Image.Image:
+def _remove_background(pil_img: Image.Image) -> Image.Image:
+    """
+    Remove background using GrabCut on a downscaled version,
+    then apply the upscaled mask to the original.
+    Composites result onto white.
+    """
+    try:
+        orig_w, orig_h = pil_img.size
+
+        # Downscale to max 600px wide for GrabCut speed (works on Railway)
+        max_dim = 600
+        scale = min(1.0, max_dim / max(orig_w, orig_h))
+        work_w = max(int(orig_w * scale), 10)
+        work_h = max(int(orig_h * scale), 10)
+        small_pil = pil_img.resize((work_w, work_h), Image.LANCZOS)
+
+        bgr = cv2.cvtColor(np.array(small_pil, dtype=np.uint8), cv2.COLOR_RGB2BGR)
+        h, w = bgr.shape[:2]
+
+        # GrabCut requires rect strictly inside image
+        rx, ry = max(2, int(w * 0.04)), max(2, int(h * 0.04))
+        rw = max(4, w - 2 * rx)
+        rh = max(4, h - 2 * ry)
+        rect = (rx, ry, rw, rh)
+
+        mask  = np.zeros((h, w), dtype=np.uint8)
+        bgd   = np.zeros((1, 65), dtype=np.float64)
+        fgd   = np.zeros((1, 65), dtype=np.float64)
+
+        cv2.grabCut(bgr, mask, rect, bgd, fgd, 5, cv2.GC_INIT_WITH_RECT)
+
+        # Foreground = GC_FGD(1) or GC_PR_FGD(3)
+        fg = np.where(
+            (mask == cv2.GC_FGD) | (mask == cv2.GC_PR_FGD), 255, 0
+        ).astype(np.uint8)
+
+        # Morphological cleanup
+        k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+        fg = cv2.morphologyEx(fg, cv2.MORPH_CLOSE, k, iterations=3)
+        fg = cv2.morphologyEx(fg, cv2.MORPH_OPEN,  k, iterations=1)
+        fg = cv2.GaussianBlur(fg, (5, 5), 0)
+
+        # Upscale mask back to original size
+        if scale < 1.0:
+            fg = cv2.resize(fg, (orig_w, orig_h), interpolation=cv2.INTER_LINEAR)
+
+        # Composite original image onto white
+        orig_arr = np.array(pil_img, dtype=np.float32)
+        alpha    = fg.astype(np.float32) / 255.0
+        white    = np.ones_like(orig_arr) * 255.0
+        result   = (orig_arr * alpha[:, :, None] + white * (1 - alpha[:, :, None])).astype(np.uint8)
+
+        return Image.fromarray(result, "RGB")
+
+    except Exception:
+        # Fallback: return on white canvas untouched
+        canvas = Image.new("RGB", pil_img.size, (255, 255, 255))
+        canvas.paste(pil_img)
+        return canvas
     """Crop image centred on face with passport proportions."""
     iw, ih = pil_img.size
     fx, fy, fw, fh = face
@@ -132,7 +190,10 @@ def process_passport_photo(file_bytes: bytes) -> dict:
     face = _detect_face(bgr)
     face_found = face is not None
 
-    # 3. Crop around face (or use full image)
+    # 3. Remove background → white
+    pil = _remove_background(pil)
+
+    # 4. Crop around face (or use full image)
     if face_found:
         pil = _crop_portrait(pil, face)
 
