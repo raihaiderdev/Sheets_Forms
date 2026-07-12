@@ -90,6 +90,10 @@ def _removebg_api(file_bytes: bytes) -> Image.Image | None:
         body += file_bytes + b"\r\n"
         body += b"--" + boundary + b"\r\n"
         body += b'Content-Disposition: form-data; name="size"\r\n\r\nfull\r\n'
+        body += b"--" + boundary + b"\r\n"
+        body += b'Content-Disposition: form-data; name="type"\r\n\r\nperson\r\n'
+        body += b"--" + boundary + b"\r\n"
+        body += b'Content-Disposition: form-data; name="format"\r\n\r\npng\r\n'
         body += b"--" + boundary + b"--\r\n"
 
         req = urllib.request.Request(
@@ -177,9 +181,35 @@ def _remove_background(pil_img: Image.Image, face=None) -> Image.Image:
     # Try remove.bg API first
     rgba = _removebg_api(_pil_to_jpeg_bytes(pil_img))
     if rgba is not None:
-        # Composite RGBA onto white
-        canvas = Image.new("RGB", rgba.size, (255, 255, 255))
-        canvas.paste(rgba, mask=rgba.split()[3])
+        # Ensure RGBA
+        rgba = rgba.convert("RGBA")
+        r, g, b, a = rgba.split()
+
+        # --- Clean up semi-transparent fringe ---
+        # 1. Threshold alpha: pixels < 20 → fully transparent, > 200 → fully opaque
+        #    This removes grey/coloured fringe left by semi-transparent edge pixels
+        import numpy as np
+        a_arr = np.array(a, dtype=np.uint8)
+        a_arr[a_arr < 20]  = 0    # definitely background → transparent
+        a_arr[a_arr > 200] = 255  # definitely foreground → opaque
+        # Smooth transition zone: leave 20-200 as-is for natural edges
+
+        # 2. For any remaining semi-transparent pixel, blend toward white
+        #    to avoid grey fringe on white background
+        r_arr = np.array(r, dtype=np.float32)
+        g_arr = np.array(g, dtype=np.float32)
+        b_arr = np.array(b, dtype=np.float32)
+        alpha_f = a_arr.astype(np.float32) / 255.0
+
+        # Pre-multiply then composite onto white: result = fg*alpha + white*(1-alpha)
+        r_out = (r_arr * alpha_f + 255.0 * (1 - alpha_f)).clip(0, 255).astype(np.uint8)
+        g_out = (g_arr * alpha_f + 255.0 * (1 - alpha_f)).clip(0, 255).astype(np.uint8)
+        b_out = (b_arr * alpha_f + 255.0 * (1 - alpha_f)).clip(0, 255).astype(np.uint8)
+
+        canvas = Image.fromarray(
+            np.stack([r_out, g_out, b_out], axis=2), "RGB"
+        )
+
         # Resize to match original if API returns different size
         if canvas.size != pil_img.size:
             canvas = canvas.resize(pil_img.size, Image.LANCZOS)
