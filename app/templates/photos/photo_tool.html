@@ -117,7 +117,7 @@ nav { flex: 1; padding: 12px 0; overflow-y: auto; }
 <div class="main">
   <div class="topbar">
     <div class="page-title">📷 Photo Tools</div>
-    <div id="topbar-status" style="font-size:12px;color:#64748b;">Select options below</div>
+    <div id="topbar-status" style="font-size:12px;color:#64748b;">Select options below — output: 600×800 px · 10–25 KB</div>
   </div>
 
   <div class="content">
@@ -214,7 +214,7 @@ function updateStatus() {
   const rmbg      = document.getElementById('chk-rmbg').checked;
   const parts = [];
   if (compress) parts.push('Compress to 10–25 KB');
-  if (passport) parts.push('Passport size 413×531px');
+  if (passport) parts.push('Passport size 600×800px');
   if (rmbg)     parts.push('Remove background');
   document.getElementById('topbar-status').textContent =
     parts.length ? parts.join(' · ') : 'Select options above — 10–25 KB · min 600×800 px';
@@ -248,7 +248,7 @@ function handleFiles(files) {
     const isPassport = document.getElementById('chk-passport').checked;
     grid.insertAdjacentHTML('beforeend',
       `<div class="photo-card" id="card-${i}">
-         <div style="background:#0f172a;overflow:hidden;display:flex;align-items:center;justify-content:center;${isPassport ? 'aspect-ratio:413/531' : 'aspect-ratio:4/3'}">
+         <div style="background:#0f172a;overflow:hidden;display:flex;align-items:center;justify-content:center;${isPassport ? 'aspect-ratio:600/800' : 'aspect-ratio:4/3'}">
            <img id="thumb-${i}" style="width:100%;height:100%;object-fit:cover;display:none;">
            <span id="sp-${i}" style="color:#475569;font-size:11px;">Loading…</span>
          </div>
@@ -319,14 +319,14 @@ async function processAll() {
 
         // If compress-only but result is still >25KB, note it
         const tags = [];
-        if (doPassport) tags.push('413×531px');
+        if (doPassport) tags.push('600×800px');
         if (doRmbg)     tags.push(data.face_found !== undefined ? (data.face_found ? '✔ Face' : '⚠ No face') : 'BG removed');
         if (doCompress || usePassportEndpoint) tags.push(`${sizeKb} KB`);
 
         processedResults.push({ filename: file.name, b64: finalB64, size_kb: sizeKb });
         const idx = processedResults.length - 1;
         const card = document.getElementById('card-' + i);
-        const ar = doPassport ? 'aspect-ratio:413/531' : 'aspect-ratio:4/3';
+        const ar = doPassport ? 'aspect-ratio:600/800' : 'aspect-ratio:4/3';
         if (card) card.innerHTML = `
           <div style="background:#0f172a;overflow:hidden;${ar}">
             <img src="data:image/jpeg;base64,${finalB64}" style="width:100%;height:100%;object-fit:cover;">
