@@ -263,6 +263,32 @@ def _crop_portrait(pil_img: Image.Image, face) -> Image.Image:
 # 5. Compression
 # ---------------------------------------------------------------------------
 
+def _resize_to_passport(pil_img: Image.Image) -> Image.Image:
+    """
+    Resize image to exactly PASSPORT_W × PASSPORT_H (600×800) px.
+    - Preserves aspect ratio (no distortion)
+    - Scales to fill as much of 600×800 as possible
+    - Centers on pure white canvas
+    - Always outputs exactly 600×800 px
+    """
+    target_w, target_h = PASSPORT_W, PASSPORT_H
+    src_w, src_h = pil_img.size
+
+    # Scale to fit inside 600×800 while preserving aspect ratio
+    scale = min(target_w / src_w, target_h / src_h)
+    new_w = int(src_w * scale)
+    new_h = int(src_h * scale)
+
+    resized = pil_img.resize((new_w, new_h), Image.LANCZOS)
+
+    # Center on white canvas
+    canvas = Image.new("RGB", (target_w, target_h), (255, 255, 255))
+    offset_x = (target_w - new_w) // 2
+    offset_y = (target_h - new_h) // 2
+    canvas.paste(resized, (offset_x, offset_y))
+    return canvas
+
+
 def _compress_to_range(pil_img: Image.Image) -> bytes:
     """Compress to 10-25 KB JPEG @ 300 DPI. Never shrink below 600×800 px."""
     ow, oh = pil_img.size
@@ -318,12 +344,10 @@ def process_passport_photo(file_bytes: bytes) -> dict:
     if face is not None:
         pil = _crop_portrait(pil, face)
 
-    pil = pil.resize((PASSPORT_W, PASSPORT_H), Image.LANCZOS)
+    # Resize to exactly 600×800 px preserving aspect ratio, pad with white
+    pil = _resize_to_passport(pil)
 
-    canvas = Image.new("RGB", (PASSPORT_W, PASSPORT_H), (255, 255, 255))
-    canvas.paste(pil)
-
-    final_bytes = _compress_to_range(canvas)
+    final_bytes = _compress_to_range(pil)
 
     return {
         "ok":         True,
